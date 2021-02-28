@@ -8,7 +8,7 @@ https://www.lpi.org/our-certifications/lpic-1-overview
 
 The Pluralsight path consists of 9 individual courses, covering various aspects of Linux.  This repo contains course notes for each course (in Markdown), including a guide for setting up your lab environment.  The list of files are as follows, and should be covered in the order I've specified in the list below;
 
-1. Centos7LabSetup.md (https://app.pluralsight.com/library/courses/lfcs-red-hat-7-essentials/table-of-contents)
+1. [Centos7LabSetup.md] (./Centos7LabSetup.md) (https://app.pluralsight.com/library/courses/lfcs-red-hat-7-essentials/table-of-contents)
 2. Centos7AdminEssentials.md (https://app.pluralsight.com/library/courses/lfcs-red-hat-7-essentials/table-of-contents)
 3. Centos7OperationEssentials.md (https://app.pluralsight.com/library/courses/lfcs-linux-operation-essentials/table-of-contents)
 4. Centos7UserAndGroupManagement.md (https://app.pluralsight.com/library/courses/lfcs-linux-user-group-management/table-of-contents)
