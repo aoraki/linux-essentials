@@ -1050,6 +1050,8 @@ Install screen if not already installed
 yum install -y screen
 ```
 
+
+#### Configuring screen
 You first need to create a `.screenrc` file in your home directory, like this;
 
 ```
