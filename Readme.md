@@ -10,9 +10,9 @@ The Pluralsight path consists of 9 individual courses, covering various aspects 
 
 |Course Notes File|Pluralsight Link|Description|
 |-----------------|----------------|-----------|
-|[Centos7LabSetup.md](./Centos7LabSetup.md)|https://app.pluralsight.com/library/courses/lfcs-red-hat-7-essentials/table-of-contents| Instructions to create a lab environment|
-|[Centos7AdminEssentials.md](./Centos7AdminEssentials.md)|https://app.pluralsight.com/library/courses/lfcs-red-hat-7-essentials/table-of-contents||
-|Centos7OperationEssentials.md|https://app.pluralsight.com/library/courses/lfcs-linux-operation-essentials/table-of-contents||
+|[Centos7LabSetup.md](./Centos7LabSetup.md)|https://app.pluralsight.com/library/courses/lfcs-red-hat-7-essentials/table-of-contents| Instructions to create a lab environment that can be used for all of our courses|
+|[Centos7AdminEssentials.md](./Centos7AdminEssentials.md)|https://app.pluralsight.com/library/courses/lfcs-red-hat-7-essentials/table-of-contents|Covering basic linux administration general topics|
+|[Centos7OperationEssentials.md](./Centos7OperationEssentials.md)|https://app.pluralsight.com/library/courses/lfcs-linux-operation-essentials/table-of-contents|Covering topics concerning operational aspects of linux|
 |Centos7UserAndGroupManagement.md|https://app.pluralsight.com/library/courses/lfcs-linux-user-group-management/table-of-contents||
 |Centos7StorageManagement.md|https://app.pluralsight.com/library/courses/lfcs-linux-storage-management/table-of-contents||
 |Centos7NetworkManagement.md|https://app.pluralsight.com/library/courses/lfcs-linux-networking/table-of-contents||
