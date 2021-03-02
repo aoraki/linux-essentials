@@ -1,45 +1,52 @@
-Pluralsight courses in this path:
+# Learning the Essentials of CentOS Enterprise Linux 7 Administration - Course Notes
 
-1. Learning CentOs Enterprise Linux 7 Essentials - DONE -
-2. CentOs Enterprise Linux 7 Operation Essentials
-3. CentOs Enterprise Linux 7 User and Group management
-4. CentOs Enterprise Linux 7 Storage Management
-5. CentOs Enterprise Linux 7 Networking
-6. CentOs Enterprise Linux 7 Service Management
-7. CentOs Enterprise Linux 7 Virtualization Management
+Path to pluralsight course : https://app.pluralsight.com/library/courses/lfcs-red-hat-7-essentials/table-of-contents
 
-Linux Commands
+## General Linux Commands
 
-// to get info regarding your linux Version
+To get info regarding your linux Version
+```
 lsb_release -d
+```
 
-// Info regarding file systems //
-df // disk free info
-df -h // disk free info with sizes in human readable form
-df -T // also displaying the filesystem TYPE
-mount // displays the mounted file systems
+Info regarding file systems
 
-// Check your IP settings
+* `df` - disk free info
+* `df -h` - disk free info with sizes in human readable form
+* `df -T` - also displaying the filesystem TYPE
+* `mount` - displays the mounted file systems
+
+Check your IP settings
+```
 ip a s
+```
 
-// Check your network connections
+To check the status of your network connections
+```
 nmcli conn show
+```
 
-// Activate a network connection (where the connection in question is enp0s3)
+Activate a network connection (where the connection in question is enp0s3)
+```
 nmcli conn up enp0s3
+```
 
-// Search for a string and replace it, in a given file
+Search for a string and replace it, in a given file
+```
 sed -i s/ONBOOT=no/ONBOOT=yes/ /etc/sysconfig/network-scripts/ifcfg-enp03
 sed -i s/ONBOOT=no/ONBOOT=yes/ /etc/sysconfig/network-scripts/ifcfg-enp08
+```
 
-// Search for a string using the last argument used in a previous command
+Search for a string using the last argument used in a previous command
+```
 grep ONBOOT !s
+```
 
-/// Consoles ///
+## Consoles
 
-Physical TTY
-Local Pseudo TTY
-Remote Pseudo TTY (ssh from another machine)
+* Physical TTY
+* Local Pseudo TTY
+* Remote Pseudo TTY (ssh from another machine)
 
 When logging on, usernames and passwords are case sensitive
 When using Centos with a graphical environment, the login screen you see in that environment is called a "display manager"
@@ -47,137 +54,182 @@ When using Centos with a graphical environment, the login screen you see in that
 In the Centos7 gui, you can launch a terminal window by right-clicking on the desktop and select Open Terminal,
 or by clicking the Terminal Icon in the top bar
 
-CTRL/Shift/+ to increase the font size of the terminal window
-CTRL/- to decrease the font size
+`CTRL/Shift/+` to increase the font size of the terminal window
+`CTRL/-` to decrease the font size
 
-To exit the terminal window, use CTRL/D or type exit.
+To exit the terminal window, use `CTRL/D` or type exit.
 
 To switch to the physical console hit the Right CTRL key and F2.  To switch back to the graphical terminal hit the right CTRL key and F1.
 
-// To return to your home directory
+To return to your home directory
+```
 cd
-
-// To see what terminal you are currently using
+```
+To see what terminal you are currently using
+```
 tty
-
-// To see who is currently logged in and what terminal they are logged into
+```
+To see who is currently logged in and what terminal they are logged into
+```
 who
+```
 
-//// WORKING WITH FILES AND DIRECTORIES ////
+## WORKING WITH FILES AND DIRECTORIES
 
-//// Listing files////
+### Listing files
 
-// list files in the current directory (not including hidden files)
+List files in the current directory (not including hidden files)
+```
 ls
+```
 
-// list files in the current directory (not including hidden files), displayed in a list
-// Shows permissions, number of hard links, group ownership, size, and date last modified
+List files in the current directory (not including hidden files), displayed in a list.  It shows permissions, number of hard links, group ownership, size, and date last modified
+```
 ls -l
+```
 
-// As above but with size displayed in human readable format
+As above but with size displayed in human readable format
+```
 ls -lh
+```
 
-// list files in the current directory (not including hidden files), including their inode number (their entry in the file system)
+List files in the current directory (not including hidden files), including their inode number (their entry in the file system)
+```
 ls -i
+```
 
-// shows everything in a directory, including hidden files.  Hidden files/dirs always begin with a dot (.)
+To show everything in a directory, including hidden files.  Hidden files/dirs always begin with a dot (.)
+```
 ls -a
+```
 
-// Shows a list of files, sorting on the timestamp (t) in reverse order (r)
+Shows a list of files, sorting on the timestamp (t) in reverse order (r)
+```
 ls -ltr
+```
 
-// Shows the file type. Directories will be shown with a forward slash after their name
+Shows the file type. Directories will be shown with a forward slash after their name
+```
 ls -F
-
-//// File Types ////
+```
+### File Types
 
 Everything in Linux is represented as a File
 
-"-" : A regular file
-"d" : A directory
-"l" : Symbolic link
-"b" : A block device
-"c" : A character device file
-"p" : Named pipes
-"s" : Sockets
+* `-` : A regular file
+* `d` : A directory
+* `l` : Symbolic link
+* `b` : A block device
+* `c` : A character device file
+* `p` : Named pipes
+* `s` : Sockets
 
-//// File Management Commands ////
+### File Management Commands
 
-cp
-mv
-rm
+* `cp`
+* `mv`
+* `rm`
 
-// Options that can be used with above //
 
--i : interactive mode
--r|R : used for Recursion
-* : wildcard to group files together, eg rm *.txt.  * means zero or more characters
-? : represents a single character
-[] : We can put groups of characters in the square brackets
+Options that can be used with above;
 
-//// Directory Management Commands ////
+* `-i` : interactive mode
+* `-r|R` : used for Recursion
+* `*` : wildcard to group files together, eg rm *.txt.  * * means zero or more characters
+* `?` : represents a single character
+* `[]` : We can put groups of characters in the square brackets
 
-// Make a directory
-mkdir <DIR NAME>
+### Directory Management Commands
 
-// Make a nest of directorys, creating the parent one on the way
-mkdir -p <DIR NAME>/<SUB DIR>
+Make a directory
+```
+mkdir mydir1
+```
 
-// Make a directory and set the permissions at creation time
-mkdir -m 777 <DIR NAME>
+Make a nest of directorys, creating the parent one on the way
+```
+mkdir -p mydir2/subdir2
+```
 
-// Make a dir and set the sticky bit
-// The sticky bit is a permission bit that is set on a file or a dir that lets
-// only the ownder of the file/dir or the root user to delete or rename a file
-// No other user is given privileges to delete the file created by another user
-mkdir -m 1777 test
+Make a directory and set the permissions at creation time
+```
+mkdir -m 777 mydir3
+```
 
-// Remove a directory
-rmdir
+To make a dir and set the sticky bit. The `sticky bit` is a permission bit that is set on a file or a dir that lets
+only the ownder of the file/dir or the root user to delete or rename a file. No other user is given privileges to delete the file created by another user
+```
+mkdir -m 1777 mydir4
+```
 
-// Remove a directory and it's contents recursively
-rm -rf
+Remove a directory
+```
+rmdir mydir1
+```
 
-// Copy a directory and it's contents recursively
-cp -R sales
+Remove a directory and it's contents recursively
+```
+rm -rf mydir1
+```
 
-//// HARD LINK COUNT ////
+Copy a directory and it's contents recursively to another location
+```
+cp -R sales /tmp
+```
 
-Can be used to count the number of subdirectorys in a directory (total hard link count -2)
-Hard link count includes the dot file (.) and the dot dot file (..)
-The dot file represents the metadata entry for the current directory
-The dot dot file represents the metadata entry for the parent directory
+### HARD LINK COUNT
 
-ls -ld dirname // to get the details of a directory
+Can be used to count the number of subdirectorys in a directory (total hard link count -2). Hard link count includes the dot file (.) and the dot dot file (..). The `dot` file represents the metadata entry for the current directory. The `dot dot` file represents the metadata entry for the parent directory
 
-// Create a link (can only link files in the same file system)
-ln
+To get the details (not the contents) of a directory
+```
+ls -ld mydir1
+```
 
-// Create a soft link or symbolic link (can link files in different file systems)
-ln -s
+Create a link (can only link files in the same file system)
+```
+ln file1 file2
+```
 
-//// Reading from files ////
+Create a soft link or symbolic link (can link files in different file systems)
+```
+ln -s sourcefile linkfile
+```
 
-// Concatenate command, you can give it two file arguments and it will concatentate the contents into one output.
-// It you give it one file it will just output that file
-cat
+## Reading from files
 
-// You can use this to page through larger files
-// You can use / to search forwards and ? to search backwards using the text we want to search for
-less
+Concatenate command, you can give it two file arguments and it will concatentate the contents into one output.
+```
+cat file1 file2
+```
 
-// Use to read the first few lines of a file
+It you give it one file it will just output that file
+```
+cat file1
+```
+
+The `less` command can be used to page through larger files
+```
+less file1
+```
+
+When in less mode, you can use `/` to search forwards and `?` to search backwards using the text we want to search for
+
+To read the first few lines of a file, and the first 10 lines of a file
+```
 head
-
-head -n 10 // Reads the first 10 lines of a file
-
-// Use to read the last few lines of a file
+head -n 10
+```
+// To read the last few lines of a file, and the last 10 lines in a file
+```
 tail
+tail -n 10
+```
 
-tail -n 10 // Reads the last 10 lines of a file
-
-// Search through files
+Search through files
+```
 grep
+```
 
 // Using enhanced grep, where you can set regular expressions to search for
 grep -E
