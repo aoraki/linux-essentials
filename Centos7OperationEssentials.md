@@ -201,9 +201,320 @@ command to see what run level we're at.
 
 ## The Boot Process
 
-// Enable Recovery Mode //
+### Enable Recovery Mode
 When you reboot a machine the GRUB2 menu gets displayed.  It shows the kernels
-that are installed including a "rescue" kernel.  This is a fallback kernel, so if
+that are installed including a `rescue` kernel.  This is a fallback kernel, so if
 your other kernels get corrupted, at least you have a way to boot up the system.
 This is not to be confused with the rescue.target, it's just a rescue image that we
 can boot to.
+
+You can configure GRUB so that it displays a recovery mode kernel for each of your normal
+kernels.  You can do this by editing the grub file;
+```
+vi /etc/default/grub
+```
+Change the value of `GRUB_DISABLE_RECOVERY` to `false`
+
+Then we need to remake the GRUB2 config;
+```
+grub2-mkconfig -o /boot/grub2/grub.cfg
+```
+When that command has completed, reboot the machine by typing the command `reboot`.
+When you get to the GRUB2 menu again, you will see that for each kernel you had previously
+there will be an additional recovery mode kernel.  If you select the recovery mode of the
+latest kernel, when you log in to that kernel and run `runlevel` you will see that the runlevel
+is 1, which means it's in recovery mode.
+
+### Reset Lost/Forgotten Root Passwords
+To do this we need to interrupt the boot process, like we did previously.  When the GRUB2 menu
+is displayed, hit esc or the up or down arrows.  Then hit `e` to edit the default entry.  You
+have to scroll down to the line that starts with linux16 which is where we're going to boot
+from the kernel. Hit `CTRL-E` to navigate to the end of that line.  Remove the words `quiet`
+and `rhgb` from the end of the line, and add `rd.break` and `enforcing=0`.  The last option is
+to switch off SELinux checks, this process would fail otherwise.  Hit `CTLR-x` to
+continue the boot process  This will only going to boot as far as completing the RAM disk phase.
+
+The `switch_root` prompt will then be displayed. This is where we are about to switch to the root file
+system.  We need to remount the root file system.  Currently the file system is mounted to read only
+but we need to set it to read-write so that we can reset the root password
+```
+switch_root:/# mount -o remount,rw /sysroot
+switch_root:/# chroot /sysroot
+```
+
+Now we are on the real root file system that was previously mounted to sysroot.  We can reset the password
+using the following command
+```
+sh-4.2# passwd
+```
+You should see a message `passwd: all authentication tokens updated successfully`
+
+We now need to set everything back, exit out of the chroot'ed environment
+```
+sh-4.2# exit
+```
+Remount the root file system to sysroot as read only and exit.  Once exited the boot
+process will continue
+```
+switch_root:/# mount -o remount,ro /sysroot
+switch_root:/# exit
+```
+
+You should be able to log in as root with the new password.  But we still need to restore the security context
+for the password file.  Changing it outside of SELinux has resulted in it losing some settings.
+```
+restorecon /etc/shadow
+
+```
+Finally, SELinux is still in permissive state which we can revert to it's normal state as follows
+```
+setenforce 1
+```
+
+## Managing GRUB2 Bootloader
+`GRUB` - **G**rand **U**nified **B**ootloader.  The version used in Centos7 is `GRUB2`
+
+### Re-installing GRUB2 (as root user)
+On BIOS based machines we normally install the GRUB bootloader through to the master
+boot record on the bootable device
+```
+grub2-install /dev/sda
+```
+
+In non-BIOS based (UEFI-based) systems the command to reinstall GRUB is as follows
+```
+yum reinstall grub2-efi shim
+```
+
+### Manage GRUB2 Defaults
+`cat /etc/default/grub`
+
+This file contains the default settings for GRUB. We edited this file earlier and we can also
+tweak other settings such as GRUB_TIMEOUT for example.
+
+The main GRUB file gets it's information from the default file above but also from a custom
+directory.
+
+To rebuild your config after changes to the default GRUB file
+```
+grub2-mkconfig -o /boot/grub2/grub.cfg
+```
+
+### Manage GRUB2 with grubby
+If the GRUB config changes are complex or messy, we can use a utility called `grubby` to help
+us.
+
+To determine our default kernel in GRUB (the one that is selected by default when the GRUB menu is shown)
+```
+[root@server1 ~]# grubby --default-kernel
+/boot/vmlinuz-3.10.0-1160.15.2.el7.x86_64
+```
+
+To set a different default kernel on GRUB menu
+```
+[root@server1 ~]# grubby --set-default /boot/vmlinuz-3.10.0-1160.el7.x86_64
+[root@server1 ~]# grubby --default-kernel
+/boot/vmlinuz-3.10.0-1160.el7.x86_64
+```
+
+To see Grubby settings for all our various kernels
+```
+[root@server1 ~]# grubby --info ALL
+index=0
+kernel=/boot/vmlinuz-3.10.0-1160.15.2.el7.x86_64
+args="ro crashkernel=auto rd.lvm.lv=centos/root rd.lvm.lv=centos/swap rhgb quiet"
+root=/dev/mapper/centos-root
+initrd=/boot/initramfs-3.10.0-1160.15.2.el7.x86_64.img
+title=CentOS Linux (3.10.0-1160.15.2.el7.x86_64) 7 (Core)
+index=1
+kernel=/boot/vmlinuz-3.10.0-1160.el7.x86_64
+args="ro crashkernel=auto rd.lvm.lv=centos/root rd.lvm.lv=centos/swap rhgb quiet"
+root=/dev/mapper/centos-root
+initrd=/boot/initramfs-3.10.0-1160.el7.x86_64.img
+title=CentOS Linux (3.10.0-1160.el7.x86_64) 7 (Core)
+index=2
+kernel=/boot/vmlinuz-0-rescue-66213c250ded4576a9120b120ad72e6c
+args="ro crashkernel=auto rd.lvm.lv=centos/root rd.lvm.lv=centos/swap rhgb quiet"
+root=/dev/mapper/centos-root
+initrd=/boot/initramfs-0-rescue-66213c250ded4576a9120b120ad72e6c.img
+title=CentOS Linux (0-rescue-66213c250ded4576a9120b120ad72e6c) 7 (Core)
+index=3
+non linux entry
+```
+
+To see GRUB config for a specific kernel
+```
+[root@server1 ~]# grubby --info /boot/vmlinuz-3.10.0-1160.el7.x86_64
+index=1
+kernel=/boot/vmlinuz-3.10.0-1160.el7.x86_64
+args="ro crashkernel=auto rd.lvm.lv=centos/root rd.lvm.lv=centos/swap rhgb quiet"
+root=/dev/mapper/centos-root
+initrd=/boot/initramfs-3.10.0-1160.el7.x86_64.img
+title=CentOS Linux (3.10.0-1160.el7.x86_64) 7 (Core)
+```
+
+We can change the args for a kernel using the following, such as remove rhgb and quiet
+```
+grubby --remove-args="rhgb quiet" --update-kernel /boot/vmlinuz-3.10.0-1160.el7.x86_64
+```
+
+### Password Protecting GRUB2
+We can set passwords for our GRUB menu.  Passwords can either be encrypted or unencrypted
+
+#### Setting a plain text password
+Back up the existing GRUB users file
+```
+cp /etc/grub.d/01_users .
+```
+
+Then edit the users file and replace the contents the following.  The superusers setting here does not relate to anything in the linux users setup, it can be something completely arbitrary
+```
+vi /etc/grub.d/01_users
+
+#!/bin/sh -e
+cat << EOF
+    set superusers="john"
+    password john L1nux
+EOF
+```
+
+We then need to rebuild our grub config and reboot the server for the changes to take effect.
+If you try edit a kernel's settings from the GRUB menu, you will be asked for a username and password.
+The username in this case being `john` and the password being `L1nux`
+```
+grub2-mkconfig -o /boot/grub2/grub.cfg
+
+reboot
+```
+
+#### Setting an encrypted password
+Plain text passwords held in configuration files are not ideal from a security standpoint.
+
+To set an encryped password for GRUB editing We first need to generate an encrypted password,
+which there is a utility for
+```
+[root@server1 ~]# grub2-mkpasswd-pbkdf2
+Enter password:
+Reenter password:
+PBKDF2 hash of your password is grub.pbkdf2.sha512.10000.BFB67F3FD1ABD935FE90789403441064CCCAC7BCCC5DF99AA58C195995BE11579D28B03D1986E06AD3C9B8E0DDCCEA0761BF6954C2308D53CAC31EF9934C1D1F.BC4C351FEC8461A43EDC6C782062689FDECABFCBD7D3CB76ECD5EB940DDCD30C31C49571D7D0C3D6E1519A55A693370163F8B54012F2E75922F723E5EC4CBEBC
+```
+
+Taking the Hash output from the above command we edit the, change the password setting to encrypted and replace the plain text password with the Hashed password
+```
+vi /etc/grub.d/01_users
+
+#!/bin/sh -e
+cat << EOF
+    set superusers="john"
+    password_pbkdf2 john grub.pbkdf2.sha512.10000.BFB67F3FD1ABD935FE90789403441064CCCAC7BCCC5DF99AA58C195995BE11579D28B03D1986E06AD3C9B8E0DDCCEA0761BF6954C2308D53CAC31EF9934C1D1F.BC4C351FEC8461A43EDC6C782062689FDECABFCBD7D3CB76ECD5EB940DDCD30C31C49571D7D0C3D6E1519A55A693370163F8B54012F2E75922F723E5EC4CBEBC
+EOF
+```
+
+We then need to rebuild our grub config and reboot the server for the changes to take effect
+```
+grub2-mkconfig -o /boot/grub2/grub.cfg
+
+reboot
+```
+
+Finally re-instate the old users file to remove password protection from the GRUB menu
+```
+cp ~/01_users /etc/grub.d/
+grub2-mkconfig -o /boot/grub2/grub.cfg
+reboot
+```
+
+### Custom GRUB2 Entries
+
+You can create custom GRUB menu entries using a similar syntax as follows
+```
+menuentry 'CentOS Custom' {
+        insmod gzio
+        insmod part_msdos
+        insmod xfs
+        set root='hd0,msdos1'
+        linux16 /vmlinuz-3.10.0-1160.el7.x86_64 root=/dev/mapper/centos-root ro crashkernel=auto rd.lvm.lv=centos/root rd.lvm.lv=centos/swap
+        initrd=/initramfs-3.10.0-1160.el7.x86_64.img
+}
+```
+The above menuentry needs to be added to the bottom of `/etc/grub.d/40_custom` file
+Then to enact the changes rebuild the GRUB config and reboot.  Your new menu entry will appear
+on the Grub menu
+```
+grub2-mkconfig -o /boot/grub2/grub.cfg
+reboot
+```
+
+## Managing Linux Processes
+
+### Using ps (process status) command
+
+The basic ps command shows us the process id, the terminal it's attached to, the CPU time amd the actual command
+we are running
+```
+[root@server1 ~]# ps
+  PID TTY          TIME CMD
+ 1521 pts/0    00:00:00 bash
+ 1536 pts/0    00:00:00 ps
+ ```
+
+To see **all** processes
+ ```
+ [root@server1 ~]# ps -e
+  PID TTY          TIME CMD
+    1 ?        00:00:01 systemd
+    2 ?        00:00:00 kthreadd
+    4 ?        00:00:00 kworker/0:0H
+    5 ?        00:00:00 kworker/u2:0
+    6 ?        00:00:00 ksoftirqd/0
+    7 ?        00:00:00 migration/0
+    8 ?        00:00:00 rcu_bh
+    9 ?        00:00:00 rcu_sched
+   10 ?        00:00:00 lru-add-drain
+...
+```
+
+To get all user processes and processes not assigned to a terminal use `a` `u` and `x`
+This gives us a bit more detail than the previous command
+```
+root@server1 ~]# ps aux
+USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root         1  0.1  0.6 128144  6780 ?        Ss   21:29   0:01 /usr/lib/systemd/systemd --switched-root --system --deserialize 22
+root         2  0.0  0.0      0     0 ?        S    21:29   0:00 [kthreadd]
+root         4  0.0  0.0      0     0 ?        S<   21:29   0:00 [kworker/0:0H]
+root         5  0.0  0.0      0     0 ?        S    21:29   0:00 [kworker/u2:0]
+root         6  0.0  0.0      0     0 ?        S    21:29   0:00 [ksoftirqd/0]
+root         7  0.0  0.0      0     0 ?        S    21:29   0:00 [migration/0]
+root         8  0.0  0.0      0     0 ?        S    21:29   0:00 [rcu_bh]
+root         9  0.0  0.0      0     0 ?        R    21:29   0:00 [rcu_sched]
+root        10  0.0  0.0      0     0 ?        S<   21:29   0:00 [lru-add-drain]
+root        11  0.0  0.0      0     0 ?        S    21:29   0:00 [watchdog/0]
+root        13  0.0  0.0      0     0 ?        S    21:29   0:00 [kdevtmpfs]
+...
+```
+
+To see a process tree like output
+```
+[root@server1 ~]# ps -e --forest
+  PID TTY          TIME CMD
+    2 ?        00:00:00 kthreadd
+    4 ?        00:00:00  \_ kworker/0:0H
+...
+  730 ?        00:00:00 NetworkManager
+  861 ?        00:00:00  \_ dhclient
+  863 ?        00:00:00  \_ dhclient
+ 1102 ?        00:00:00 sshd
+ 1517 ?        00:00:00  \_ sshd
+ 1521 pts/0    00:00:00      \_ bash
+ 1601 pts/0    00:00:00          \_ ps
+ 1103 ?        00:00:00 tuned
+ 1105 ?        00:00:00 rsyslogd
+ 1115 tty1     00:00:00 agetty
+ 1118 ?        00:00:00 crond
+ 1120 ?        00:00:00 atd
+ 1351 ?        00:00:00 master
+ 1353 ?        00:00:00  \_ qmgr
+ 1458 ?        00:00:00  \_ pickup
+ 1444 ?        00:00:00 VBoxService
+...
+```
