@@ -493,7 +493,7 @@ root        13  0.0  0.0      0     0 ?        S    21:29   0:00 [kdevtmpfs]
 ...
 ```
 
-To see a process tree like output
+To see a process tree-like output
 ```
 [root@server1 ~]# ps -e --forest
   PID TTY          TIME CMD
@@ -517,4 +517,90 @@ To see a process tree like output
  1458 ?        00:00:00  \_ pickup
  1444 ?        00:00:00 VBoxService
 ...
+```
+A better command for process trees
+```
+[root@server1 ~]# pstree
+systemd─┬─NetworkManager─┬─2*[dhclient]
+        │                └─2*[{NetworkManager}]
+        ├─VBoxService───8*[{VBoxService}]
+        ├─2*[abrt-watch-log]
+        ├─abrtd
+        ├─agetty
+        ├─alsactl
+        ├─atd
+        ├─auditd─┬─audispd─┬─sedispatch
+        │        │         └─{audispd}
+        │        └─{auditd}
+        ├─chronyd
+        ├─crond
+        ├─dbus-daemon───{dbus-daemon}
+        ├─firewalld───{firewalld}
+        ├─lvmetad
+        ├─master─┬─pickup
+        │        └─qmgr
+        ├─polkitd───6*[{polkitd}]
+        ├─rsyslogd───2*[{rsyslogd}]
+        ├─sshd───sshd───bash───pstree
+        ├─systemd-journal
+        ├─systemd-logind
+        ├─systemd-udevd
+        └─tuned───4*[{tuned}]
+```
+
+To get a full listing, to get the User ID and the Parent ID of the process, including
+when the process started (`STIME`)
+```
+[root@server1 ~]# ps -f
+UID        PID  PPID  C STIME TTY          TIME CMD
+root      1521  1517  0 21:35 pts/0    00:00:00 -bash
+root      1649  1521  0 21:45 pts/0    00:00:00 ps -f
+```
+
+To get an EXTRA-full listing, to get even more information
+```
+[root@server1 ~]# ps -F
+UID        PID  PPID  C    SZ   RSS PSR STIME TTY          TIME CMD
+root      1521  1517  0 28887  2040   0 21:35 pts/0    00:00:00 -bash
+root      1653  1521  0 38863  1840   0 21:47 pts/0    00:00:00 ps -F
+```
+
+Process Long listing, two different flavours
+```
+[root@server1 ~]# ps -l
+F S   UID   PID  PPID  C PRI  NI ADDR SZ WCHAN  TTY          TIME CMD
+4 S     0  1521  1517  0  80   0 - 28887 do_wai pts/0    00:00:00 bash
+0 R     0  1700  1521  0  80   0 - 38332 -      pts/0    00:00:00 ps
+
+[root@server1 ~]# ps -ly
+S   UID   PID  PPID  C PRI  NI   RSS    SZ WCHAN  TTY          TIME CMD
+S     0  1521  1517  0  80   0  2040 28887 do_wai pts/0    00:00:00 bash
+R     0  1702  1521  0  80   0  1496 38332 -      pts/0    00:00:00 ps
+```
+To get a long listing and full Listing
+```
+[root@server1 ~]# ps -elf
+F S UID        PID  PPID  C PRI  NI ADDR SZ WCHAN  STIME TTY          TIME CMD
+4 S root         1     0  0  80   0 - 32036 ep_pol 21:29 ?        00:00:01 /usr/lib/systemd/systemd --switched-root --system --deserialize 22
+1 S root         2     0  0  80   0 -     0 kthrea 21:29 ?        00:00:00 [kthreadd]
+1 S root         4     2  0  60 -20 -     0 worker 21:29 ?        00:00:00 [kworker/0:0H]
+1 S root         5     2  0  80   0 -     0 worker 21:29 ?        00:00:00 [kworker/u2:0]
+1 S root         6     2  0  80   0 -     0 smpboo 21:29 ?        00:00:00 [ksoftirqd/0]
+1 S root         7     2  0 -40   - -     0 smpboo 21:29 ?        00:00:00 [migration/0]
+1 S root         8     2  0  80   0 -     0 rcu_gp 21:29 ?        00:00:00 [rcu_bh]
+1 R root         9     2  0  80   0 -     0 -      21:29 ?        00:00:00 [rcu_sched]
+1 S root        10     2  0  60 -20 -     0 rescue 21:29 ?        00:00:00 [lru-add-drain]
+5 S root        11     2  0 -40   - -     0 smpboo 21:29 ?        00:00:00 [watchdog/0]
+5 S root        13     2  0  80   0 -     0 devtmp 21:29 ?        00:00:00 [kdevtmpfs]
+1 S root        14     2  0  60 -20 -     0 rescue 21:29 ?        00:00:00 [netns]
+1 S root        15     2  0  80   0 -     0 watchd 21:29 ?        00:00:00 [khungtaskd]
+...
+```
+
+Searching for a particular process
+```
+[root@server1 ~]# ps -elf | grep sshd
+4 S root      1102     1  0  80   0 - 28234 poll_s 21:29 ?        00:00:00 /usr/sbin/sshd -D
+4 S root      1517  1102  0  80   0 - 39735 poll_s 21:35 ?        00:00:00 sshd: root@pts/0
+0 R root      1705  1521  0  80   0 - 28203 -      21:50 pts/0    00:00:00 grep --color=auto sshd
 ```
