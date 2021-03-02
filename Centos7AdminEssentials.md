@@ -313,161 +313,226 @@ stat file1
 
 ## VIM Text Editor
 
-// Will create an empty file called file1, this will change the access time and the modification time
+Will create an empty file called file1, this will change the access time and the modification time
+```
 touch file1
-
-// Will also do the same thing as above
+```
+Will also do the same thing as above, using STDOUT Redirection
+```
 > file
-
-// Will avoid creating a new file if the file doesn't exist already
+```
+Will avoid creating a new file if the file doesn't exist already
+```
 touch -c file1
+```
 
-// This will change the access time only
+This will change the access time only
+```
 touch -a file1
+```
 
-// This will change the modification time only
+This will change the modification time only
+```
 touch -m file1
+```
 
-// To copy the modification and access times from one file to the other
+To copy the modification and access times from one file to the other
+```
 touch file1 -r file2
+```
 
-// To create a file with a specific timestamp
+To create a file with a specific timestamp
+```
 touch -t YYMMDDHHMM.SS file1
+```
 
-// To change the timestamp of a file
+To change the timestamp of a file
+```
 touch -c -t YYMMDDHHMM.SS file1
+```
 
-// Will change the access and modification time using a human readable date
+Will change the access and modification time using a human readable date
+```
 touch -d '16 November 1973' file
+```
 
-// To install the nano Editor
+To install the nano Editor
+```
 sudo yum install -y nano
+```
 
-// A tutor program that will exercise various vi Commands
+A tutor program that will exercise various vi Commands
+```
 vimtutor
+```
 
 ## PIPING AND REDIRECTION
 
-// Redirection of standard output, creating an empty file using standard output
+Redirection of standard output, creating an empty file using standard output
+```
 > file
+```
 
-// Writing the standard output (STDOUT) of the ls command to file1
+Writing the standard output (STDOUT) of the ls command to file1
+```
 ls > file1
+```
 
-// Using the numermical designator for redirection to definitely redirect standard output, 1> is redirection for standard output
+Using the numermical designator for redirection to definitely redirect standard output, `1>` is redirection for standard output
+```
 ls 1> file1
-
-// To append to the file instead of overwriting it
+```
+To append to the file instead of overwriting it
+```
 ls 1>> file1
+```
 
-// To prevent accidental overwrite, you can set the noclobber option in bash to prevent overwrites
+To prevent accidental overwrite, you can set the noclobber option in bash to prevent overwrites
+```
 set -o noclobber
+```
 
-// If you then want to forceibly overwrite a file you can then do so using the following
+If you then want to forceibly overwrite a file you can then do so using the following
+```
 ls >| file1
+```
 
-// Redirecting STDERR output. The following command will return standard output and standard error output.
-// Some of the files returned by the find command will have a permission denied error, which is STDERR
-// The files that we have permission to read will be STDOUT
+Redirecting STDERR output. The following command will return standard output and standard error output. Some of the files returned by the find command will have a permission denied error, which is STDERR. The files that we have permission to read will be STDOUT
+```
 find /etc -type l
+```
 
-// To redirect just the errors we can redirect the STDERR to /dev/null, which is like a black hole for data
+To redirect just the errors we can redirect the STDERR to /dev/null, which is like a black hole for data
+```
 find /etc -type l 2> /dev/null
+```
 
-// To redirect STDOUT and STDERR to the same file
+To redirect STDOUT and STDERR to the same file
+```
 find /etc -type l &> file1
+```
 
-// Reading from files using STDIN, first run a command to get the free diskspace in the filesystem and write it to a file
+Reading from files using STDIN, first run a command to get the free diskspace in the filesystem and write it to a file
+```
 df -hlT > diskfree
+```
 
-// Then we can use the mail command to send a mail to ourselves but using the contents of the diskfree file as the mail body
+Then we can use the mail command to send a mail to ourselves but using the contents of the diskfree file as the mail body
+```
 mail -s "Disk free" centos < diskfree
-
-// HERE Documents
+```
+### HERE Documents
+```
 cat > newfile <<END
 > This is a new file
 > that can be created on the
 > command line or scripts
 > END
-
+```
 In the above case the we are using cat to redirect to newfile, reading in from a here document called END.
 Each line will be read in until we read in the name of the here document, which is END
 
-// Command pipelines, piping the output of a command to another command
+
+### Command pipelines
+Piping the output of a command to another command
+```
 cut -f 7 -d : /etc/passwd | sort | uniq
+```
 
-// Named Pipes. Used for interprocess communication.  Created with the mkfifo command
+### Named Pipes.
+Used for interprocess communication.  Created with the mkfifo command
+```
 mkfifo mypipe
-
-// You can then redirect information to the pipe, this command sends the output of the ls command to the named pipe
+```
+You can then redirect information to the pipe, this command sends the output of the ls command to the named pipe
+```
 ls > mypipe
-
-// In a separate process (can be simulated by logging in with a new bash session)
-// you can process the data from the named pipe using the following
+```
+In a separate process (can be simulated by logging in with a new bash session) you can process the data from the named pipe using the following
+```
 wc -l < mypipe
+```
 
-// The Tee command.  This is used to see the output while it is being redirected to a file
-// If you are doing straight-up redirection, you won't see the output
+### tee
+The `tee` command.  This is used to see the output while it is being redirected to a file.  If you are doing straight-up redirection, you won't see the output
+```
 ls | tee file1
+```
 
 ## Archiving Files
 
-// Using tar //
-tar -c // Create a tar file
-tar -t // looking inside a tar
-tar -x // Expanding a tar
-use the -f option in addtion to the above to specify the file that we backing up to or expanding from
-tar -z // To compress the tar file as well
+### Using tar
+* `tar -c` - Create a tar file
+* `tar -t` - Looking inside a tar
+* `tar -x` - Expanding a tar
+* `tar -z` - To compress the tar file as well
+use the `-f` option in addtion to the above to specify the file that we backing up to or expanding from
 
-// Using Gzip and gunzip //
-used to compresse and decompress zip files
-.gz or .tgz are common file extentions used to denote compressed files
+### Using Gzip and gunzip
+Used to compresse and decompress zip files
+`.gz` or `.tgz` are common file extentions used to denote compressed files
 
-// cpio //
--i // input mode
--o // Output mode
--d // Create the necessary directories when expanding
+#### cpio
+* `-i` - input mode
+* `-o` - output mode
+* `-d` - create the necessary directories when expanding
 
-// To create a CPIO archive file from the output of the find command
+To create a CPIO archive file from the output of the find command
+```
 find /usr/share/doc -name '*.pdf' | cpio -o > /tmp/pdf.cpio
+```
 
-// To expand a cpio file into your current dir //
+To expand a cpio file into your current dir //
+```
 cpio -id < /tmp/pdf.cpio // Input mode
+```
+### dd command
+Usage to make images of disks
 
-// dd command//
-if // input file
-of // output file
+* `if` - input file
+* `of` - output file
 
-// To make an image of the disk loaded into a CD ROM drive
- dd if=/dev/sr0 of=/tmp/disk.iso
+To make an image of the disk loaded into a CD ROM drive
+```
+dd if=/dev/sr0 of=/tmp/disk.iso
+```
 
-// To backup the master boot record //
+To backup the master boot record //
+```
 dd if=/dev/sda of=/tmp/sda.mbr count=1 bs=512
-
+```
 
 ## ACCESSING COMMAND LINE HELP
--h --help /?
+`-h` `--help` `/?`
 
+To get help for the `ls` command
+```
 ls -h
 ls --help
-
-man <command>
+```
+### man pages
+`man <command>`
+```
 man ls
 man pwd
+```
 
-// To find out what the man sections are then run the man command on man itself
+To find out what the man sections are then run the man command on man itself
+```
 man man
+```
 
-// To access a particular section of a man page for a command, you can specify the section number
+To access a particular section of a man page for a command, you can specify the section number
+```
 man 5 ls
+```
 
-// Info pages //
-eg. info ls
+### Info pages
+eg. `info ls`
 
-Info pages contain other sections that are linked in the main page.  Go down to the menu item
-and hit return on the menu item you want to access.  To return to the previous level use the "u" key
+Info pages contain other sections that are linked in the main page.  Go down to the menu item and hit return on the menu item you want to access.  To return to the previous level use the "u" key
 
-// RCS (Revision Control System)//
+### RCS (Revision Control System)
 You can maintain multiple versions of files using RCS
 ci // command is used to check in a file
 ci -f // To force checkin a file
