@@ -96,7 +96,7 @@ Finally, make sure your network adapter settings are reboot persistent, run the 
 ```
 2. Next, install some tools we'll be needing
 ```
-[root@master1 ~]# yum install -y redhat-lsb-core net-tools epel-release kernel-headers kernel-devel
+[root@master1 ~]# yum install -y redhat-lsb-core net-tools epel-release kernel-headers kernel-devel screen
 ```
 3. Install the graphical packages
 ```
@@ -164,9 +164,21 @@ Ensure that the setting for "PermitRootLogin" is uncommented and has a value of 
 
 Save the file and restart sshd using `systemctl restart sshd`
 
-## To Pre-authenticate your ssh key
+### To Pre-authenticate your ssh key
 ```
 [root@server1 .ssh]# ssh-agent bash
 [root@server1 .ssh]# ssh-add
 ```
 You will be asked to enter your passphrase.  But once you add it you don't need to enter it again when using your keypair.
+
+## Configuration for screen command
+A pre-requisite for this is having your ssh client and key-based auth configured
+
+```
+[root@server1 ~]# vi .screenrc
+```
+Enter the following lines;
+```
+screen -t server1 0 bash
+screen -t s1 1 ssh server2
+```
