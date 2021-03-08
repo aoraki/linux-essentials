@@ -447,7 +447,10 @@ reboot
 
 ## Managing Linux Processes
 
-### Using ps (process status) command
+This section covers all things processes in Linux.  Remember in linux, everything is a file
+or a process.
+
+### Using ps (process status) command
 
 The basic ps command shows us the process id, the terminal it's attached to, the CPU time amd the actual command
 we are running
@@ -603,4 +606,253 @@ Searching for a particular process
 4 S root      1102     1  0  80   0 - 28234 poll_s 21:29 ?        00:00:00 /usr/sbin/sshd -D
 4 S root      1517  1102  0  80   0 - 39735 poll_s 21:35 ?        00:00:00 sshd: root@pts/0
 0 R root      1705  1521  0  80   0 - 28203 -      21:50 pts/0    00:00:00 grep --color=auto sshd
+```
+
+### The /prod Directory and the $$ Variable
+
+The proc directory represents the running processes that you have on your system
+as well as maintaining other files that have information about the system
+
+The proc directory contains numbered directories, each number representing the process
+id of a process;
+
+```
+root@server1 proc]# ls
+1     1111  13    1449  16  20  25   284  291  33   391  396  400  45   504  594  601  647  674  716  9          bus       crypto     execdomains  iomem     keys        loadavg  modules       partitions   slabinfo  sysrq-trigger  uptime
+10    1112  1357  1460  17  21  280  285  30   367  392  397  401  46   515  596  604  667  677  735  96         cgroups   devices    fb           ioports   key-users   locks    mounts        sched_debug  softirqs  sysvipc        version
+102   1123  1358  1468  18  22  281  287  31   368  393  398  41   47   538  598  606  670  679  8    acpi       cmdline   diskstats  filesystems  irq       kmsg        mdstat   mtrr          schedstat    stat      timer_list     vmallocinfo
+11    1125  1359  1484  19  23  282  288  32   377  394  399  43   482  589  6    643  672  686  866  asound     consoles  dma        fs           kallsyms  kpagecount  meminfo  net           scsi         swaps     timer_stats    vmstat
+1109  1126  14    15    2   24  283  289  326  378  395  4    44   5    592  60   645  673  7    868  buddyinfo  cpuinfo   driver     interrupts   kcore     kpageflags  misc     pagetypeinfo  self         sys       tty            zoneinfo
+```
+
+You can get more indepth info for a process by passing in it's id to the ps command
+```
+[root@server1 proc]# ps -p1 -f
+UID        PID  PPID  C STIME TTY          TIME CMD
+root         1     0  0 20:23 ?        00:00:01 /usr/lib/systemd/systemd --switched-root --system --deserialize 22
+```
+
+To get the process id of the currently running process
+```
+[root@server1 proc]# echo $$
+1468
+```
+
+To get extra full information for the current process use the following command
+```
+[root@server1 proc]# ps -p $$ -F
+UID        PID  PPID  C    SZ   RSS PSR STIME TTY          TIME CMD
+root      1468  1460  0 28887  2072   0 20:24 pts/0    00:00:00 -bash
+```
+
+To get into the directoy of the current running process id
+```
+[root@server1 proc]# cd $$
+[root@server1 1468]# pwd
+/proc/1468
+```
+
+To interrogate even more information
+```
+[root@server1 1468]# ls -l cwd
+lrwxrwxrwx. 1 root root 0 Mar  8 20:35 cwd -> /proc/1468
+[root@server1 1468]# ls -l exe
+lrwxrwxrwx. 1 root root 0 Mar  8 20:35 exe -> /usr/bin/bash
+```
+
+In the prod directory there is a loadavg file, that contains load averages regarding
+running processes in the system.  The number of the right is the process id of the last command
+that was run
+```
+[root@server1 proc]# ps
+  PID TTY          TIME CMD
+ 1468 pts/0    00:00:00 bash
+ 1631 pts/0    00:00:00 ps
+[root@server1 proc]# cat loadavg
+0.00 0.01 0.05 2/129 1633
+[root@server1 proc]#
+[root@server1 proc]# cat loadavg
+0.00 0.01 0.05 2/129 1634
+[root@server1 proc]# cat loadavg
+0.00 0.01 0.05 2/129 1635
+```
+
+The first three columns in the output of loadavg command shows the load average over the last minute, the last 5 mins, and
+the last 15 mins.  The fourth column shows the number of processes running, out of a total.
+
+### Send signals to processes with the command kill
+
+To get a list of keyboard shortcuts
+```
+[root@server1 ~]# stty -a
+speed 38400 baud; rows 56; columns 275; line = 0;
+intr = ^C; quit = ^\; erase = ^?; kill = ^U; eof = ^D; eol = M-^?; eol2 = M-^?; swtch = <undef>; start = ^Q; stop = ^S; susp = ^Z; rprnt = ^R; werase = ^W; lnext = ^V; flush = ^O; min = 1; time = 0;
+-parenb -parodd -cmspar cs8 -hupcl -cstopb cread -clocal -crtscts
+-ignbrk -brkint -ignpar -parmrk -inpck -istrip -inlcr -igncr icrnl ixon -ixoff -iuclc ixany imaxbel iutf8
+opost -olcuc -ocrnl onlcr -onocr -onlret -ofill -ofdel nl0 cr0 tab0 bs0 vt0 ff0
+isig icanon iexten echo echoe echok -echonl -noflsh -xcase -tostop -echoprt echoctl echoke
+```
+
+To get a list of kill signals that can be sent
+```
+[root@server1 ~]# kill -l
+ 1) SIGHUP	 2) SIGINT	 3) SIGQUIT	 4) SIGILL	 5) SIGTRAP
+ 6) SIGABRT	 7) SIGBUS	 8) SIGFPE	 9) SIGKILL	10) SIGUSR1
+11) SIGSEGV	12) SIGUSR2	13) SIGPIPE	14) SIGALRM	15) SIGTERM
+16) SIGSTKFLT	17) SIGCHLD	18) SIGCONT	19) SIGSTOP	20) SIGTSTP
+21) SIGTTIN	22) SIGTTOU	23) SIGURG	24) SIGXCPU	25) SIGXFSZ
+26) SIGVTALRM	27) SIGPROF	28) SIGWINCH	29) SIGIO	30) SIGPWR
+31) SIGSYS	34) SIGRTMIN	35) SIGRTMIN+1	36) SIGRTMIN+2	37) SIGRTMIN+3
+38) SIGRTMIN+4	39) SIGRTMIN+5	40) SIGRTMIN+6	41) SIGRTMIN+7	42) SIGRTMIN+8
+43) SIGRTMIN+9	44) SIGRTMIN+10	45) SIGRTMIN+11	46) SIGRTMIN+12	47) SIGRTMIN+13
+48) SIGRTMIN+14	49) SIGRTMIN+15	50) SIGRTMAX-14	51) SIGRTMAX-13	52) SIGRTMAX-12
+53) SIGRTMAX-11	54) SIGRTMAX-10	55) SIGRTMAX-9	56) SIGRTMAX-8	57) SIGRTMAX-7
+58) SIGRTMAX-6	59) SIGRTMAX-5	60) SIGRTMAX-4	61) SIGRTMAX-3	62) SIGRTMAX-2
+63) SIGRTMAX-1	64) SIGRTMAX
+```
+
+You can send kill signals using the number, the long word (SIGKILL) or the short
+word (just take out the SIG and use the rest, eg TERM or KILL).  These are all
+equivalent
+```
+[root@server1 ~]# kill -9 1731
+[root@server1 ~]# kill -kill 1731
+[root@server1 ~]# kill -sigkill 1731
+```
+
+When you remove a process, the directory for that process is removed from the `/proc`
+directory.
+
+The default signal is `15) SIGTERM` and that is basically a request to the process to shut
+down gracefully.  If you use the kill command without a signal, eg `kill 1731`, it sends the
+default signal
+
+### Shortcuts with pgrep and pkill and the top command
+
+To find processes running sshd
+```
+[root@server1 ~]# pgrep sshd
+1111
+1708
+```
+
+To get more indepth info
+```
+[root@server1 ~]# ps -F -p $(pgrep sshd)
+UID        PID  PPID  C    SZ   RSS PSR STIME TTY      STAT   TIME CMD
+root      1111     1  0 28234  4324   0 20:23 ?        Ss     0:00 /usr/sbin/sshd -D
+root      1708  1111  0 39735  5756   0 20:45 ?        Ss     0:00 sshd: root@pts/0
+```
+
+To kill multiple processes for the same command (eg. sleep)
+```
+[root@server1 ~]# sleep 100&
+[1] 1934
+[root@server1 ~]# sleep 100&
+[2] 1935
+[root@server1 ~]# sleep 100&
+[3] 1936
+[root@server1 ~]# sleep 100&
+[4] 1937
+[root@server1 ~]# pgrep sleep
+1934
+1935
+1936
+1937
+[root@server1 ~]# pkill sleep
+[1]   Terminated              sleep 100
+[2]   Terminated              sleep 100
+[3]-  Terminated              sleep 100
+[4]+  Terminated              sleep 100
+```
+
+The `top` command shows a list of running processes and sorts them based on processor
+time by default
+```
+top - 21:05:17 up 42 min,  1 user,  load average: 0.00, 0.01, 0.05
+Tasks: 104 total,   1 running, 103 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  0.3 us,  0.0 sy,  0.0 ni, 99.7 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st
+KiB Mem :  1014752 total,   619684 free,   185548 used,   209520 buff/cache
+KiB Swap:   839676 total,   839676 free,        0 used.   680432 avail Mem
+
+  PID USER      PR  NI    VIRT    RES    SHR S %CPU %MEM     TIME+ COMMAND
+    1 root      20   0  128144   6788   4188 S  0.0  0.7   0:01.37 systemd
+    2 root      20   0       0      0      0 S  0.0  0.0   0:00.00 kthreadd
+    4 root       0 -20       0      0      0 S  0.0  0.0   0:00.00 kworker/0:0H
+    5 root      20   0       0      0      0 S  0.0  0.0   0:00.00 kworker/u2:0
+    6 root      20   0       0      0      0 S  0.0  0.0   0:00.08 ksoftirqd/0
+    7 root      rt   0       0      0      0 S  0.0  0.0   0:00.00 migration/0
+    8 root      20   0       0      0      0 S  0.0  0.0   0:00.00 rcu_bh
+    9 root      20   0       0      0      0 S  0.0  0.0   0:00.68 rcu_sched
+   10 root       0 -20       0      0      0 S  0.0  0.0   0:00.00 lru-add-drain
+   11 root      rt   0       0      0      0 S  0.0  0.0   0:00.02 watchdog/0
+   13 root      20   0       0      0      0 S  0.0  0.0   0:00.00 kdevtmpfs
+   14 root       0 -20       0      0      0 S  0.0  0.0   0:00.00 netns
+   15 root      20   0       0      0      0 S  0.0  0.0   0:00.00 khungtaskd
+   16 root       0 -20       0      0      0 S  0.0  0.0   0:00.00 writeback
+   17 root       0 -20       0      0      0 S  0.0  0.0   0:00.00 kintegrityd
+   18 root       0 -20       0      0      0 S  0.0  0.0   0:00.00 bioset
+   19 root       0 -20       0      0      0 S  0.0  0.0   0:00.00 bioset
+   20 root       0 -20       0      0      0 S  0.0  0.0   0:00.00 bioset
+   21 root       0 -20       0      0      0 S  0.0  0.0   0:00.00 kblockd
+```
+
+`top` shows us things like the uptime, load averages, info on tasks, CPU and memory
+utilization. To customize the `top` output, press the `F` key, and this will display a list of
+fields that you can display with the top command.  To tell `top` what to sort on,
+select a field and hit the `S` key.  Hit `esc` to return back to the main display, and
+your changes will be apparent.
+
+To get out of the `top` display hit the `q` key.
+
+## Process Priority
+
+### Backgrounding commands
+
+A simple way to start a process and run it in the background is use `&`
+Using `jobs` will show us the jobs we have running in the background
+```
+[root@server1 ~]# sleep 100&
+[1] 2434
+[root@server1 ~]# jobs
+[1]+  Running                 sleep 100 &
+```
+
+You can suspend a process using CTRL-Z
+```
+[root@server1 ~]# sleep 500
+^Z
+[1]+  Stopped                 sleep 500
+```
+
+If you run the jobs command then, it will show you the command as being stopped.
+It is still using memory but it is not taking CPU time. The `+` shows you which job
+has focus.
+```
+[root@server1 ~]# jobs
+[1]+  Stopped                 sleep 500
+```
+
+You can resume a job using `bg`, but it will resume in the background and allow you to
+use the terminal. Using `bg` by itself resumes the job which has focus
+```
+[root@server1 ~]# bg
+[1]+ sleep 500 &
+
+[root@server1 ~]# jobs
+[1]+  Running                 sleep 500 &
+```
+
+To bring a job into the foreground use the `fg` command.  This will mean that you have to
+wait until the job completes before being able to use the terminal again
+```
+[root@server1 ~]# fg
+sleep 500
+```
+
+If you want to bring a particular job to the foreground, use the `fg` command with the job number
+(obtained from the jobs command)
+```
+[root@server1 ~]# fg 1
+sleep 500
 ```
