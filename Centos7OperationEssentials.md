@@ -856,3 +856,126 @@ If you want to bring a particular job to the foreground, use the `fg` command wi
 [root@server1 ~]# fg 1
 sleep 500
 ```
+
+### Configuring process priority
+
+You can see the CPU priority for a process from the PRI column in the output from
+ps -l.  This is controlled by the nice value (NI column), which dictates the priority.
+The default nice value is 0.  It can run from -20 to +19.  The highly the nice value
+the nicer the application, or the less CPU time it's going to take.
+
+The lower the PRI value, it means that the process is a higher priority.
+```
+[root@server1 ~]# sleep 1000&
+[1] 1478
+[root@server1 ~]# ps -l
+F S   UID   PID  PPID  C PRI  NI ADDR SZ WCHAN  TTY          TIME CMD
+4 S     0  1463  1459  0  80   0 - 28887 do_wai pts/0    00:00:00 bash
+0 S     0  1478  1463  0  80   0 - 27014 hrtime pts/0    00:00:00 sleep
+0 R     0  1479  1463  0  80   0 - 38332 -      pts/0    00:00:0
+```
+
+We can influence the `PRI` value by starting a process with the nice command and
+passing in a nice value between -20 and +19. As we can see from the below the new
+process has started with a nice value of 19,  and the PRI value is the default (80)
+plus the nice value (+19) giving us 99.
+```
+root@server1 ~]# nice -n 19 sleep 1000&
+[2] 1522
+[root@server1 ~]# ps -l
+F S   UID   PID  PPID  C PRI  NI ADDR SZ WCHAN  TTY          TIME CMD
+4 S     0  1463  1459  0  80   0 - 28887 do_wai pts/0    00:00:00 bash
+0 S     0  1478  1463  0  80   0 - 27014 hrtime pts/0    00:00:00 sleep
+0 S     0  1522  1463  0  99  19 - 27014 hrtime pts/0    00:00:00 sleep
+0 R     0  1523  1463  0  80   0 - 38332 -      pts/0    00:00:00 ps
+```
+NB To set a negative value you have to do it as an elevated user, such as root.
+
+We can adjust the priority of a currently running process by using the `renice` command
+NB An ordinary user cannot set the nice value at a lower nice value than it currently has, you can only
+set it at a higher value.  Only the `root` user can do that
+```
+[root@server1 ~]# renice -n 10 -p 1463
+1463 (process ID) old priority 0, new priority 10
+[root@server1 ~]# ps -l
+F S   UID   PID  PPID  C PRI  NI ADDR SZ WCHAN  TTY          TIME CMD
+4 S     0  1463  1459  0  90  10 - 28887 do_wai pts/0    00:00:00 bash
+0 S     0  1478  1463  0  80   0 - 27014 hrtime pts/0    00:00:00 sleep
+0 S     0  1522  1463  0  99  19 - 27014 hrtime pts/0    00:00:00 sleep
+0 S     0  1571  1463  0  81   1 - 27014 hrtime pts/0    00:00:00 sleep
+4 S     0  1573  1463  0  70 -10 - 27014 hrtime pts/0    00:00:00 sleep
+0 R     0  1577  1463  0  90  10 - 38332 -      pts/0    00:00:00 ps
+```
+
+The root user can set the default nice value for users or groups.  You can add entries
+to the limits.conf file.  The example shows you setting a nice value of +10 for
+any process started by the centos user
+```
+[root@server1 ~]# vi /etc/security/limits.conf
+
+centos - priority 10
+```
+
+## Monitoring Linux Performance
+
+### Listing Standard Tools in procps-ng
+
+To see what's included in the procps-ng package
+```
+[centos@server1 ~]$ rpm -ql procps-ng
+/usr/bin/free
+/usr/bin/pgrep
+/usr/bin/pkill
+/usr/bin/pmap
+/usr/bin/ps
+/usr/bin/pwdx
+/usr/bin/skill
+/usr/bin/slabtop
+/usr/bin/snice
+/usr/bin/tload
+/usr/bin/top
+/usr/bin/uptime
+/usr/bin/vmstat
+/usr/bin/w
+/usr/bin/watch
+/usr/lib64/libprocps.so.4
+/usr/lib64/libprocps.so.4.0.0
+/usr/sbin/sysctl
+/usr/share/doc/procps-ng-3.3.10
+/usr/share/doc/procps-ng-3.3.10/AUTHORS
+/usr/share/doc/procps-ng-3.3.10/BUGS
+/usr/share/doc/procps-ng-3.3.10/COPYING
+/usr/share/doc/procps-ng-3.3.10/COPYING.LIB
+/usr/share/doc/procps-ng-3.3.10/FAQ
+/usr/share/doc/procps-ng-3.3.10/NEWS
+/usr/share/doc/procps-ng-3.3.10/README
+/usr/share/doc/procps-ng-3.3.10/README.top
+/usr/share/doc/procps-ng-3.3.10/TODO
+/usr/share/man/man1/free.1.gz
+/usr/share/man/man1/pgrep.1.gz
+/usr/share/man/man1/pkill.1.gz
+/usr/share/man/man1/pmap.1.gz
+/usr/share/man/man1/ps.1.gz
+/usr/share/man/man1/pwdx.1.gz
+/usr/share/man/man1/skill.1.gz
+/usr/share/man/man1/slabtop.1.gz
+/usr/share/man/man1/snice.1.gz
+/usr/share/man/man1/tload.1.gz
+/usr/share/man/man1/top.1.gz
+/usr/share/man/man1/uptime.1.gz
+/usr/share/man/man1/w.1.gz
+/usr/share/man/man1/watch.1.gz
+/usr/share/man/man5/sysctl.conf.5.gz
+/usr/share/man/man8/sysctl.8.gz
+/usr/share/man/man8/vmstat.8.gz
+```
+
+You can do it the other way around, by finding out what package a certain file
+belongs to
+```
+[centos@server1 ~]$ rpm -qf /usr/bin/top
+procps-ng-3.3.10-28.el7.x86_64
+```
+* - `rpm -ql procps-ng | grep '^/usr/bin/'` To show just the programs in a package
+* - `rpm -qd procps-ng` To show just the documentation files in a package
+* - `rpm -qc procps-ng` To show just the configuration files in a package
