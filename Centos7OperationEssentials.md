@@ -138,7 +138,7 @@ To cancel a shutdown command (This will also delete any /run/nologin file, if on
 shutdown -c
 ```
 
-### Changing runlevels
+### Changing runlevels
 
 These commands tells us what run level we're at.  run-level 5 tells us it's a graphical environment.
 This is a legacy term, it's now known as the "graphical target"
@@ -187,7 +187,7 @@ With this target the network services are not run so any remote connection is lo
 [root@server1 ~]# systemctl isolate rescue.target
 ```
 
-#### Changing the run level at boot
+#### Changing the run level at boot
 When the machine is starting up it will display the `GRUB2` menu with a list of kernels
 that you can boot to.  Hit the `esc` key to halt the process.  The default entry is
 the one that is selected.
@@ -225,7 +225,7 @@ there will be an additional recovery mode kernel.  If you select the recovery mo
 latest kernel, when you log in to that kernel and run `runlevel` you will see that the runlevel
 is 1, which means it's in recovery mode.
 
-### Reset Lost/Forgotten Root Passwords
+### Reset Lost/Forgotten Root Passwords
 To do this we need to interrupt the boot process, like we did previously.  When the GRUB2 menu
 is displayed, hit esc or the up or down arrows.  Then hit `e` to edit the default entry.  You
 have to scroll down to the line that starts with linux16 which is where we're going to boot
@@ -271,10 +271,10 @@ Finally, SELinux is still in permissive state which we can revert to it's normal
 setenforce 1
 ```
 
-## Managing GRUB2 Bootloader
+## Managing GRUB2 Bootloader
 `GRUB` - **G**rand **U**nified **B**ootloader.  The version used in Centos7 is `GRUB2`
 
-### Re-installing GRUB2 (as root user)
+### Re-installing GRUB2 (as root user)
 On BIOS based machines we normally install the GRUB bootloader through to the master
 boot record on the bootable device
 ```
@@ -424,7 +424,7 @@ grub2-mkconfig -o /boot/grub2/grub.cfg
 reboot
 ```
 
-### Custom GRUB2 Entries
+### Custom GRUB2 Entries
 
 You can create custom GRUB menu entries using a similar syntax as follows
 ```
