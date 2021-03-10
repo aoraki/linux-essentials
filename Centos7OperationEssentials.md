@@ -979,3 +979,338 @@ procps-ng-3.3.10-28.el7.x86_64
 * - `rpm -ql procps-ng | grep '^/usr/bin/'` To show just the programs in a package
 * - `rpm -qd procps-ng` To show just the documentation files in a package
 * - `rpm -qc procps-ng` To show just the configuration files in a package
+
+### Using pwdx and pmap
+
+To see how much memory is free, and with options to express it in megabytes and gigabytes
+```
+[root@server1 ~]# free
+              total        used        free      shared  buff/cache   available
+Mem:        1014752      195892      594180        6924      224680      667988
+Swap:        839676           0      839676
+[root@server1 ~]# free -m
+              total        used        free      shared  buff/cache   available
+Mem:            990         191         580           6         219         652
+Swap:           819           0         819
+[root@server1 ~]# free -g
+              total        used        free      shared  buff/cache   available
+Mem:              0           0           0           0           0           0
+Swap:             0           0           0
+```
+NB. Free only shows you complete units, and not partial units.  That's why when we
+try to display free gigabytes, it comes back empty, because our free space is less than 1 gb
+
+To get the memory map of a process.  You can see the size of the memory in use and
+the breakdown by what is using it.  One of the useful things from the output is
+that we can see the shared libraries that are being used by the process
+```
+[root@server1 ~]# pmap 7396
+7396:   -bash
+0000000000400000    888K r-x-- bash
+00000000006dd000      4K r---- bash
+00000000006de000     36K rw--- bash
+00000000006e7000     24K rw---   [ anon ]
+0000000000d63000    264K rw---   [ anon ]
+00007f42de362000     48K r-x-- libnss_files-2.17.so
+00007f42de36e000   2044K ----- libnss_files-2.17.so
+00007f42de56d000      4K r---- libnss_files-2.17.so
+00007f42de56e000      4K rw--- libnss_files-2.17.so
+00007f42de56f000     24K rw---   [ anon ]
+00007f42de575000 103692K r---- locale-archive
+00007f42e4ab8000   1808K r-x-- libc-2.17.so
+00007f42e4c7c000   2044K ----- libc-2.17.so
+00007f42e4e7b000     16K r---- libc-2.17.so
+00007f42e4e7f000      8K rw--- libc-2.17.so
+00007f42e4e81000     20K rw---   [ anon ]
+00007f42e4e86000      8K r-x-- libdl-2.17.so
+00007f42e4e88000   2048K ----- libdl-2.17.so
+00007f42e5088000      4K r---- libdl-2.17.so
+00007f42e5089000      4K rw--- libdl-2.17.so
+00007f42e508a000    148K r-x-- libtinfo.so.5.9
+00007f42e50af000   2048K ----- libtinfo.so.5.9
+00007f42e52af000     16K r---- libtinfo.so.5.9
+00007f42e52b3000      4K rw--- libtinfo.so.5.9
+00007f42e52b4000    136K r-x-- ld-2.17.so
+00007f42e54c0000     12K rw---   [ anon ]
+00007f42e54cb000      8K rw---   [ anon ]
+00007f42e54cd000     28K r--s- gconv-modules.cache
+00007f42e54d4000      4K rw---   [ anon ]
+00007f42e54d5000      4K r---- ld-2.17.so
+00007f42e54d6000      4K rw--- ld-2.17.so
+00007f42e54d7000      4K rw---   [ anon ]
+00007fff91b66000    132K rw---   [ stack ]
+00007fff91b93000      8K r-x--   [ anon ]
+ffffffffff600000      4K r-x--   [ anon ]
+ total           115552K
+```
+
+To see the root file system the process is running with (or the working director
+of a process)
+```
+root@server1 ~]# pwdx $$
+7396: /root
+[root@server1 ~]# pwdx $(pgrep sshd)
+1105: /
+7392: /
+```
+
+### Using uptime and tload
+
+To see information how long the server has been up and running.  Shows you the
+current time, the status, how long it's been up, the number of users logged on
+and the system loads in the previous 1, 5 and 15 mins.
+```
+[root@server1 7396]# uptime
+ 20:35:15 up  9:01,  1 user,  load average: 0.00, 0.01, 0.05
+ ```
+
+ For load average values, it depends on the number of CPUs you have.  In our
+ case, we have 1 CPU.  If the load value goes over 1.00 it means that the server is
+ at capacity and that CPU requests will be queued.
+
+ The w command comes from the procps package and is similar to the who command,
+ but gives us a bit more information
+ ```
+ [root@server1 7396]# w
+ 20:39:37 up  9:05,  1 user,  load average: 0.00, 0.01, 0.05
+USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
+root     pts/0    192.168.99.1     20:22    1.00s  0.03s  0.00s w
+```
+
+To find out how many CPUs we have and get information relating to it
+```
+[root@server1 7396]# lscpu
+Architecture:          x86_64
+CPU op-mode(s):        32-bit, 64-bit
+Byte Order:            Little Endian
+CPU(s):                1
+On-line CPU(s) list:   0
+Thread(s) per core:    1
+Core(s) per socket:    1
+Socket(s):             1
+NUMA node(s):          1
+Vendor ID:             GenuineIntel
+CPU family:            6
+Model:                 70
+Model name:            Intel(R) Core(TM) i7-4770HQ CPU @ 2.20GHz
+Stepping:              1
+CPU MHz:               2194.918
+BogoMIPS:              4389.83
+Hypervisor vendor:     KVM
+Virtualization type:   full
+L1d cache:             32K
+L1i cache:             32K
+L2 cache:              256K
+L3 cache:              6144K
+L4 cache:              131072K
+NUMA node0 CPU(s):     0
+Flags:                 fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx rdtscp lm constant_tsc rep_good nopl xtopology nonstop_tsc eagerfpu pni pclmulqdq monitor ssse3 cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt aes xsave avx rdrand hypervisor lahf_lm abm invpcid_single fsgsbase avx2 invpcid md_clear flush_l1d
+```
+
+To get some more information about uptime.  The values are shown in seconds, with
+the value on the left the seconds the system has been up, and the value on the right
+how many seconds the CPU has been idle.  The idle time can be greater than your up time
+but that's just an indication that you have more than 1 CPU
+```
+[root@server1 7396]# cat /proc/uptime
+33003.90 32944.68
+```
+
+To get some more info about loadavg
+```
+[root@server1 7396]# cat /proc/loadavg.  Shows the load avgs for previous 1, 10, 15 mins
+the number of active processes and the last process id that was used.
+0.00 0.01 0.05 2/129 7704
+```
+
+Using watch to run commands such as uptime at intervals of your choosing.  This
+command will run uptime every 4 seconds.  The default interval is 2 seconds.
+```
+[root@server1 7396]# watch -n 4 uptime
+
+Every 4.0s: uptime                                                                                                                                                                                                 Wed Mar 10 20:49:41 2021
+
+ 20:49:41 up  9:15,  1 user,  load average: 0.02, 0.02, 0.05
+```
+
+To monitor your load averages in real time use tload.  The values will change if
+the load averages change
+```
+[root@server1 7396]# tload
+
+0.01, 0.02, 0.05 ---------
+```
+
+### Using top and vmstat
+
+To run top in batch mode to capture information over a specified number of iterations,
+in this case 1 interation (`-n1`)
+```
+[root@server1 7396]# top -b -n1
+
+top - 20:59:07 up  9:25,  1 user,  load average: 0.00, 0.01, 0.05
+Tasks: 102 total,   1 running, 101 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  0.0 us,  0.0 sy,  0.0 ni,100.0 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st
+KiB Mem :  1014752 total,   593016 free,   195948 used,   225788 buff/cache
+KiB Swap:   839676 total,   839676 free,        0 used.   667856 avail Mem
+
+  PID USER      PR  NI    VIRT    RES    SHR S %CPU %MEM     TIME+ COMMAND
+    1 root      20   0  128144   6788   4188 S  0.0  0.7   0:02.24 systemd
+    2 root      20   0       0      0      0 S  0.0  0.0   0:00.00 kthreadd
+    4 root       0 -20       0      0      0 S  0.0  0.0   0:00.00 kworker/0:0H
+    5 root      20   0       0      0      0 S  0.0  0.0   0:00.28 kworker/u2:0
+    6 root      20   0       0      0      0 S  0.0  0.0   0:00.40 ksoftirqd/0
+    7 root      rt   0       0      0      0 S  0.0  0.0   0:00.00 migration/0
+    8 root      20   0       0      0      0 S  0.0  0.0   0:00.00 rcu_bh
+...
+```
+
+To run top in batch mode to capture information over a specified number of iterations,
+in this case 1 interation (`-n1`) and send to a file
+```
+[root@server1 7396]# top -b -n1 > file1
+```
+
+To run vmstat just once run vmstat.  Reading from left to right, it shows the number
+of running processes, the number of blocked processes, memory information, swap in and
+swap out, bytes in and bytes out, system info and CPU info
+```
+[root@server1 ~]# vmstat
+procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st
+ 2  0      0 589192   2116 226280    0    0     6     3   20   39  0  0 100  0  0
+
+ [root@server1 ~]# vmstat -S m
+ procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
+  r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st
+  2  0      0    604      2    231    0    0     6     3   20   39  0  0 100  0  0
+ ```
+
+ To run vmstat at an interval and for a number of iterations. In this example vmstat
+ will be run every 5 seconds, for 3 iterations
+ ```
+ [root@server1 ~]# vmstat 5 3
+procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st
+ 3  0      0 590328   2116 226308    0    0     6     3   20   39  0  0 100  0  0
+ 0  0      0 590376   2116 226308    0    0     0    12   37   67  0  0 100  0  0
+ 0  0      0 590376   2116 226308    0    0     0     0   30   57  0  0 100  0  0
+ ```
+
+ ## Using sysstat to monitor performance
+
+ ### Installing sysstat and initial configuration
+
+ ```
+[root@server1 ~]# yum install -y sysstat
+```
+
+As part of the install it will create a new cron job that will run sysstat every
+10 mins and then a final summary wrap up at the end of the day.  Some additional
+config is available at `etc/sysconfig/sysstat`
+```
+[root@server1 ~]#
+[root@server1 ~]# cat /etc/cron.d/sysstat
+# Run system activity accounting tool every 10 minutes
+*/10 * * * * root /usr/lib64/sa/sa1 1 1
+# 0 * * * * root /usr/lib64/sa/sa1 600 6 &
+# Generate a daily summary of process accounting at 23:53
+53 23 * * * root /usr/lib64/sa/sa2 -A
+```
+
+To start the sysstat service, enable it to ensure it starts when the system starts,
+and to get it's status
+```
+[root@server1 ~]# systemctl start sysstat
+[root@server1 ~]# systemctl enable sysstat
+[root@server1 ~]# systemctl status sysstat
+● sysstat.service - Resets System Activity Logs
+   Loaded: loaded (/usr/lib/systemd/system/sysstat.service; enabled; vendor preset: enabled)
+   Active: active (exited) since Wed 2021-03-10 21:18:23 GMT; 15s ago
+ Main PID: 8279 (code=exited, status=0/SUCCESS)
+
+Mar 10 21:18:23 server1.example.com systemd[1]: Starting Resets System Activity Logs...
+Mar 10 21:18:23 server1.example.com systemd[1]: Started Resets System Activity Logs.
+```
+
+### Using additional sysstat tools
+
+To look at disk activity, default is kbs, but you can use `iostat -m` to view in mbs
+```
+[root@server1 ~]# iostat
+Linux 3.10.0-1160.15.2.el7.x86_64 (server1.example.com) 	10/03/21 	_x86_64_	(1 CPU)
+
+avg-cpu:  %user   %nice %system %iowait  %steal   %idle
+           0.03    0.00    0.09    0.01    0.00   99.86
+
+Device:            tps    kB_read/s    kB_wrtn/s    kB_read    kB_wrtn
+sda               0.65        10.80         5.62     379680     197545
+dm-0              0.72        10.44         5.81     367064     204043
+dm-1              0.00         0.06         0.00       2204          0
+```
+
+To run iostat over a certain interval for a number of iterations.  The below is
+using a 5 second interval and repeating iostat 3 times
+```
+[root@server1 ~]# iostat -m 5 3
+Linux 3.10.0-1160.15.2.el7.x86_64 (server1.example.com) 	10/03/21 	_x86_64_	(1 CPU)
+
+avg-cpu:  %user   %nice %system %iowait  %steal   %idle
+           0.03    0.00    0.09    0.01    0.00   99.86
+
+Device:            tps    MB_read/s    MB_wrtn/s    MB_read    MB_wrtn
+sda               0.65         0.01         0.01        370        193
+dm-0              0.72         0.01         0.01        358        199
+dm-1              0.00         0.00         0.00          2          0
+
+avg-cpu:  %user   %nice %system %iowait  %steal   %idle
+           0.00    0.00    0.20    0.00    0.00   99.80
+
+Device:            tps    MB_read/s    MB_wrtn/s    MB_read    MB_wrtn
+sda               0.00         0.00         0.00          0          0
+dm-0              0.00         0.00         0.00          0          0
+dm-1              0.00         0.00         0.00          0          0
+
+avg-cpu:  %user   %nice %system %iowait  %steal   %idle
+           0.00    0.00    0.00    0.00    0.00  100.00
+
+Device:            tps    MB_read/s    MB_wrtn/s    MB_read    MB_wrtn
+sda               0.00         0.00         0.00          0          0
+dm-0              0.00         0.00         0.00          0          0
+dm-1              0.00         0.00         0.00          0          0
+```
+
+To get stats for a particular process (this example using the current process),
+for a certain interval and a certain number of iterations
+```
+[root@server1 ~]# pidstat -p $$ 5 3
+Linux 3.10.0-1160.15.2.el7.x86_64 (server1.example.com) 	10/03/21 	_x86_64_	(1 CPU)
+
+21:25:41      UID       PID    %usr %system  %guest    %CPU   CPU  Command
+21:25:46        0      7396    0.00    0.00    0.00    0.00     0  bash
+21:25:51        0      7396    0.00    0.00    0.00    0.00     0  bash
+21:25:56        0      7396    0.00    0.00    0.00    0.00     0  bash
+Average:        0      7396    0.00    0.00    0.00    0.00     -  bash
+```
+
+To get processor stat information, in this case for ALL processes
+```
+[root@server1 ~]# mpstat -P ALL 2 3
+Linux 3.10.0-1160.15.2.el7.x86_64 (server1.example.com) 	10/03/21 	_x86_64_	(1 CPU)
+
+21:27:20     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle
+21:27:22     all    0.00    0.00    0.00    0.00    0.00    0.50    0.00    0.00    0.00   99.50
+21:27:22       0    0.00    0.00    0.00    0.00    0.00    0.50    0.00    0.00    0.00   99.50
+
+21:27:22     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle
+21:27:24     all    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00  100.00
+21:27:24       0    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00  100.00
+
+21:27:24     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle
+21:27:26     all    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00  100.00
+21:27:26       0    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00  100.00
+
+Average:     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle
+Average:     all    0.00    0.00    0.00    0.00    0.00    0.17    0.00    0.00    0.00   99.83
+Average:       0    0.00    0.00    0.00    0.00    0.00    0.17    0.00    0.00    0.00   99.83
+```
