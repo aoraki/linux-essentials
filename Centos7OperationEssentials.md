@@ -1293,7 +1293,7 @@ Linux 3.10.0-1160.15.2.el7.x86_64 (server1.example.com) 	10/03/21 	_x86_64_	(1 C
 Average:        0      7396    0.00    0.00    0.00    0.00     -  bash
 ```
 
-To get processor stat information, in this case for ALL processes
+To get more processor stat information, in this case for ALL processes
 ```
 [root@server1 ~]# mpstat -P ALL 2 3
 Linux 3.10.0-1160.15.2.el7.x86_64 (server1.example.com) 	10/03/21 	_x86_64_	(1 CPU)
@@ -1314,3 +1314,234 @@ Average:     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest
 Average:     all    0.00    0.00    0.00    0.00    0.00    0.17    0.00    0.00    0.00   99.83
 Average:       0    0.00    0.00    0.00    0.00    0.00    0.17    0.00    0.00    0.00   99.83
 ```
+
+### Creating System activity reports using sar
+
+Sar can help build up a picture of the system bottlenecks during the day
+
+To report on CPU utilization (which is the default with sar), use `sar -u` or just
+`sar`
+```
+[root@server1 cron.d]# sar -u
+Linux 3.10.0-1160.15.2.el7.x86_64 (server1.example.com) 	11/03/21 	_x86_64_	(1 CPU)
+
+21:20:08          LINUX RESTART
+
+21:25:26        CPU     %user     %nice   %system   %iowait    %steal     %idle
+21:25:27        all      0.00      0.00      0.00      0.00      0.00    100.00
+21:25:28        all      0.00      0.00      0.00      0.00      0.00    100.00
+21:25:29        all      0.00      0.00      0.00      0.00      0.00    100.00
+21:25:29        all      0.00      0.00      1.89      0.00      0.00     98.11
+21:25:30        all      1.92      0.00      0.00      0.00      0.00     98.08
+21:25:30        all      0.00      0.00      0.00      0.00      0.00    100.00
+```
+
+To report on memory utilization use `sar -r`
+```
+[root@server1 cron.d]# sar -r
+Linux 3.10.0-1160.15.2.el7.x86_64 (server1.example.com) 	11/03/21 	_x86_64_	(1 CPU)
+
+21:20:08          LINUX RESTART
+
+21:25:26    kbmemfree kbmemused  %memused kbbuffers  kbcached  kbcommit   %commit  kbactive   kbinact   kbdirty
+21:25:27       621292    393460     38.77      2116    177920    332732     17.94    131424    122408         4
+21:25:28       621300    393452     38.77      2116    177924    332732     17.94    131440    122396         8
+21:25:29       621308    393444     38.77      2116    177928    332732     17.94    131408    122396        12
+21:25:29       621348    393404     38.77      2116    177928    332732     17.94    131444    122396        12
+21:25:30       621176    393576     38.79      2116    177932    332732     17.94    131412    122396        16
+21:25:30       621308    393444     38.77      2116    177932    332732     17.94    131448    122396        16
+21:25:31       621176    393576     38.79      2116    177936    332732     17.94    131452    122396        20
+21:25:32       621176    393576     38.79      2116    177944    332732     17.94    131460    122396        28
+21:25:33       621244    393508     38.78      2116    177948    332732     17.94    131452    122396        32
+Average:       621259    393493     38.78      2116    177932    332732     17.94    131438    122397        16
+```
+
+To report on disk IO
+```
+[root@server1 cron.d]# sar -b
+Linux 3.10.0-1160.15.2.el7.x86_64 (server1.example.com) 	11/03/21 	_x86_64_	(1 CPU)
+
+21:20:08          LINUX RESTART
+
+21:25:26          tps      rtps      wtps   bread/s   bwrtn/s
+21:25:27         0.00      0.00      0.00      0.00      0.00
+21:25:28         0.00      0.00      0.00      0.00      0.00
+21:25:29         0.00      0.00      0.00      0.00      0.00
+21:25:29         0.00      0.00      0.00      0.00      0.00
+21:25:30         0.00      0.00      0.00      0.00      0.00
+21:25:30         0.00      0.00      0.00      0.00      0.00
+21:25:31         0.00      0.00      0.00      0.00      0.00
+21:25:32         0.00      0.00      0.00      0.00      0.00
+21:25:33         0.00      0.00      0.00      0.00      0.00
+Average:         0.00      0.00      0.00      0.00      0.00
+```
+
+To report on network activity
+```
+[root@server1 cron.d]# sar -n DEV
+Linux 3.10.0-1160.15.2.el7.x86_64 (server1.example.com) 	11/03/21 	_x86_64_	(1 CPU)
+
+21:20:08          LINUX RESTART
+
+21:25:26        IFACE   rxpck/s   txpck/s    rxkB/s    txkB/s   rxcmp/s   txcmp/s  rxmcst/s
+21:25:27       enp0s3      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:27       enp0s8      3.45      2.07      0.28      0.26      0.00      0.00      0.00
+21:25:27           lo      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:28       enp0s3      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:28       enp0s8      6.76      4.05      0.54      0.51      0.00      0.00      0.00
+21:25:28           lo      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:29       enp0s3      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:29       enp0s8      9.26      5.56      0.74      0.70      0.00      0.00      0.00
+21:25:29           lo      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:29       enp0s3      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:29       enp0s8      9.43      5.66      0.76      0.71      0.00      0.00      0.00
+21:25:29           lo      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:30       enp0s3      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:30       enp0s8      9.62      5.77      0.77      0.72      0.00      0.00      0.00
+21:25:30           lo      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:30       enp0s3      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:30       enp0s8      8.93      5.36      0.71      0.67      0.00      0.00      0.00
+21:25:30           lo      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:31       enp0s3      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:31       enp0s8      9.80      5.88      0.79      0.74      0.00      0.00      0.00
+21:25:31           lo      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:32       enp0s3      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:32       enp0s8      9.49      5.70      0.76      0.72      0.00      0.00      0.00
+21:25:32           lo      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:33       enp0s3      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:25:33       enp0s8      8.20      4.92      0.66      0.62      0.00      0.00      0.00
+21:25:33           lo      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+Average:       enp0s3      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+Average:       enp0s8      7.81      4.69      0.63      0.59      0.00      0.00      0.00
+Average:           lo      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+```
+
+To report on load averages
+```
+[root@server1 cron.d]#
+[root@server1 cron.d]# sar -q
+Linux 3.10.0-1160.15.2.el7.x86_64 (server1.example.com) 	11/03/21 	_x86_64_	(1 CPU)
+
+21:20:08          LINUX RESTART
+
+21:25:26      runq-sz  plist-sz   ldavg-1   ldavg-5  ldavg-15   blocked
+21:25:27            1       128      0.00      0.04      0.04         0
+21:25:28            1       128      0.00      0.04      0.04         0
+21:25:29            1       128      0.00      0.04      0.04         0
+21:25:29            1       128      0.00      0.04      0.04         0
+21:25:30            2       128      0.00      0.04      0.04         0
+21:25:30            1       128      0.00      0.04      0.04         0
+21:25:31            1       128      0.00      0.04      0.04         0
+21:25:32            0       128      0.00      0.04      0.04         0
+21:25:33            1       128      0.00      0.04      0.04         0
+21:30:01            2       130      0.00      0.03      0.04         0
+Average:            1       128      0.00      0.04      0.04         0
+```
+
+To run sar queries to just show data between a start and end time
+```
+[root@server1 ~]# sar -s 21:25:00 -e 21:25:30
+Linux 3.10.0-1160.15.2.el7.x86_64 (server1.example.com) 	11/03/21 	_x86_64_	(1 CPU)
+
+21:25:26        CPU     %user     %nice   %system   %iowait    %steal     %idle
+21:25:27        all      0.00      0.00      0.00      0.00      0.00    100.00
+21:25:28        all      0.00      0.00      0.00      0.00      0.00    100.00
+21:25:29        all      0.00      0.00      0.00      0.00      0.00    100.00
+21:25:29        all      0.00      0.00      1.89      0.00      0.00     98.11
+21:25:30        all      1.92      0.00      0.00      0.00      0.00     98.08
+21:25:30        all      0.00      0.00      0.00      0.00      0.00    100.00
+Average:        all      0.23      0.00      0.23      0.00      0.00     99.54
+```
+
+To view the sar data for a particular day of the month (in this case the 10th)
+then we specify the sar file we want to open, which will be called sa10 for the
+10th of the month
+```
+[root@server1 ~]# sar -f /var/log/sa/sa10
+Linux 3.10.0-1160.15.2.el7.x86_64 (server1.example.com) 	10/03/21 	_x86_64_	(1 CPU)
+
+21:18:23          LINUX RESTART
+
+21:20:01        CPU     %user     %nice   %system   %iowait    %steal     %idle
+21:30:01        all      0.01      0.00      0.08      0.01      0.00     99.90
+21:40:01        all      0.02      0.00      0.07      0.00      0.00     99.91
+21:50:01        all      0.01      0.00      0.06      0.00      0.00     99.92
+22:00:02        all      0.01      0.00      0.07      0.01      0.00     99.92
+Average:        all      0.01      0.00      0.07      0.00      0.00     99.91
+```
+
+## Managing Shared Libraries
+
+### Viewing Shared Libraries
+
+Shared libraries are libraries of code that can be shared by multiple programs
+Each program will reference a particular set of libraries that will help it fulfill
+it's function.  Shared libraries have a `.so` suffix
+
+To view shared libraries for a particular program
+```
+[root@server1 ~]# ldd /usr/bin/ls
+	linux-vdso.so.1 =>  (0x00007ffc0538d000)
+	libselinux.so.1 => /lib64/libselinux.so.1 (0x00007f3e13ca8000)
+	libcap.so.2 => /lib64/libcap.so.2 (0x00007f3e13aa3000)
+	libacl.so.1 => /lib64/libacl.so.1 (0x00007f3e1389a000)
+	libc.so.6 => /lib64/libc.so.6 (0x00007f3e134cc000)
+	libpcre.so.1 => /lib64/libpcre.so.1 (0x00007f3e1326a000)
+	libdl.so.2 => /lib64/libdl.so.2 (0x00007f3e13066000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007f3e13ecf000)
+	libattr.so.1 => /lib64/libattr.so.1 (0x00007f3e12e61000)
+	libpthread.so.0 => /lib64/libpthread.so.0 (0x00007f3e12c45000)
+
+[root@server1 ~]# ldd /usr/bin/grep
+	linux-vdso.so.1 =>  (0x00007ffc620fd000)
+	libpcre.so.1 => /lib64/libpcre.so.1 (0x00007fd8ca889000)
+	libc.so.6 => /lib64/libc.so.6 (0x00007fd8ca4bb000)
+	libpthread.so.0 => /lib64/libpthread.so.0 (0x00007fd8ca29f000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007fd8caaeb000)
+```
+You can see from the above that both `ls` and `grep` share some libraries
+
+To see the library modules loaded for a particular process (in this case, shell)
+```
+[root@server1 ~]# pmap $$
+1471:   -bash
+0000000000400000    888K r-x-- bash
+00000000006dd000      4K r---- bash
+00000000006de000     36K rw--- bash
+00000000006e7000     24K rw---   [ anon ]
+00000000018f1000    264K rw---   [ anon ]
+00007fed6da72000     48K r-x-- libnss_files-2.17.so
+00007fed6da7e000   2044K ----- libnss_files-2.17.so
+00007fed6dc7d000      4K r---- libnss_files-2.17.so
+00007fed6dc7e000      4K rw--- libnss_files-2.17.so
+00007fed6dc7f000     24K rw---   [ anon ]
+00007fed6dc85000 103692K r---- locale-archive
+00007fed741c8000   1808K r-x-- libc-2.17.so
+00007fed7438c000   2044K ----- libc-2.17.so
+00007fed7458b000     16K r---- libc-2.17.so
+00007fed7458f000      8K rw--- libc-2.17.so
+00007fed74591000     20K rw---   [ anon ]
+00007fed74596000      8K r-x-- libdl-2.17.so
+00007fed74598000   2048K ----- libdl-2.17.so
+00007fed74798000      4K r---- libdl-2.17.so
+00007fed74799000      4K rw--- libdl-2.17.so
+00007fed7479a000    148K r-x-- libtinfo.so.5.9
+00007fed747bf000   2048K ----- libtinfo.so.5.9
+00007fed749bf000     16K r---- libtinfo.so.5.9
+00007fed749c3000      4K rw--- libtinfo.so.5.9
+00007fed749c4000    136K r-x-- ld-2.17.so
+00007fed74bd0000     12K rw---   [ anon ]
+00007fed74bdb000      8K rw---   [ anon ]
+00007fed74bdd000     28K r--s- gconv-modules.cache
+00007fed74be4000      4K rw---   [ anon ]
+00007fed74be5000      4K r---- ld-2.17.so
+00007fed74be6000      4K rw--- ld-2.17.so
+00007fed74be7000      4K rw---   [ anon ]
+00007ffeb9f20000    132K rw---   [ stack ]
+00007ffeb9feb000      8K r-x--   [ anon ]
+ffffffffff600000      4K r-x--   [ anon ]
+ total           115552K
+ ```
+
+
+ 
