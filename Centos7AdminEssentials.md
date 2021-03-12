@@ -128,7 +128,7 @@ To go directly to home directory
 cd
 ```
 
-To go to previous directory
+To go to previously visited directory
 ```
 cd -
 ```
