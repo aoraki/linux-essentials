@@ -1543,5 +1543,674 @@ ffffffffff600000      4K r-x--   [ anon ]
  total           115552K
  ```
 
+ ### Setting the location of Shared Libraries
 
- 
+The standard locations for the library modules are `/lib` or `/lib64`
+However on Centos7 these directories are symbolic links to other locations in the file
+system
+```
+[root@server1 /]# ls -l
+total 20
+lrwxrwxrwx.   1 root root    7 Feb 27 15:41 bin -> usr/bin
+dr-xr-xr-x.   5 root root 4096 Mar  2 10:41 boot
+drwxr-xr-x.  20 root root 3120 Mar 11 21:20 dev
+drwxr-xr-x. 118 root root 8192 Mar 11 21:20 etc
+drwxr-xr-x.   3 root root   20 Feb 27 15:45 home
+lrwxrwxrwx.   1 root root    7 Feb 27 15:41 lib -> usr/lib
+lrwxrwxrwx.   1 root root    9 Feb 27 15:41 lib64 -> usr/lib64
+drwxr-xr-x.   2 root root    6 Apr 11  2018 media
+drwxr-xr-x.   2 root root    6 Apr 11  2018 mnt
+drwxr-xr-x.   3 root root   39 Mar  2 10:40 opt
+dr-xr-xr-x. 115 root root    0 Mar 11 21:20 proc
+dr-xr-x---.   5 root root  255 Mar 10 21:00 root
+drwxr-xr-x.  38 root root 1080 Mar 11 21:20 run
+lrwxrwxrwx.   1 root root    8 Feb 27 15:41 sbin -> usr/sbin
+drwxr-xr-x.   2 root root    6 Apr 11  2018 srv
+dr-xr-xr-x.  13 root root    0 Mar 11 21:20 sys
+drwxrwxrwt.  14 root root 4096 Mar 12 03:06 tmp
+drwxr-xr-x.  13 root root  155 Feb 27 15:41 usr
+drwxr-xr-x.  19 root root  267 Feb 27 15:47 var
+```
+
+Please note that if you cd into a dir that is symlinked to another dir, a `pwd -P`
+will show you the true location
+```
+[root@server1 /]# cd /lib
+[root@server1 lib]# pwd
+/lib
+[root@server1 lib]# pwd -P
+/usr/lib
+[root@server1 lib]# ls
+abrt-java-connector  binfmt.d  debug   firewalld  fontconfig  gcc   kbd    kernel  lsb         modules         mozilla         os-release  python2.7  rpm       sendmail.postfix  sysctl.d  tmpfiles.d  udev
+alsa                 cpp       dracut  firmware   games       grub  kdump  locale  modprobe.d  modules-load.d  NetworkManager  polkit-1    python3.6  sendmail  sse2              systemd   tuned       yum-plugins
+```
+
+The configuration files for shared libraries are at this location
+```
+[root@server1 lib]# cd /etc/ld.so.conf.d/
+[root@server1 ld.so.conf.d]# ls -al
+total 32
+drwxr-xr-x.   2 root root  180 Feb 27 16:07 .
+drwxr-xr-x. 118 root root 8192 Mar 11 21:20 ..
+-rw-r--r--.   1 root root   26 Dec 15 16:33 bind-export-x86_64.conf
+-rw-r--r--.   1 root root   19 Aug  9  2019 dyninst-x86_64.conf
+-r--r--r--.   1 root root   63 Feb  3 15:10 kernel-3.10.0-1160.15.2.el7.x86_64.conf
+-r--r--r--.   1 root root   63 Oct 19 17:23 kernel-3.10.0-1160.el7.x86_64.conf
+-rw-r--r--.   1 root root   17 Oct  1 17:55 mariadb-x86_64.conf
+```
+
+To create your own shared library you should create a directory under /usr/local/lib/
+and copy your lib into that director
+```
+[root@server1 ld.so.conf.d]# mkdir /usr/local/lib/pluralsight
+[root@server1 ld.so.conf.d]# cp/root/mysharedlib.so !$
+```
+
+Next we need to create a library configuration file in /etc/ld.so.conf.d/ and
+give it the location of our library files
+```
+[root@server1 ld.so.conf.d]# vi pluralsight.conf
+/usr/local/lib/pluralsight/
+```
+
+If you want to change the default location of libraries to something different (say if
+were developing new libs and you wanted to point at those libs).  Unsetting the path
+reverts to the default location of the libraries
+```
+[root@server1 ld.so.conf.d]# echo $LD_LIBRARY_PATH
+
+[root@server1 ld.so.conf.d]#export LD_LIBRARY_PATH=path to your libs
+```
+
+### Shared Library cache
+
+The library cache file is `/etc/ld.so.cache`
+
+To look at all the shared libraries currently in the cache, use the `ldconfig` command
+It needs to be run as `root` user
+```
+[root@server1 ld.so.conf.d]# ldconfig -p
+846 libs found in cache `/etc/ld.so.cache'
+	p11-kit-trust.so (libc6,x86-64) => /lib64/p11-kit-trust.so
+	libz.so.1 (libc6,x86-64) => /lib64/libz.so.1
+	libyelp.so.0 (libc6,x86-64) => /lib64/libyelp.so.0
+	libxtables.so.10 (libc6,x86-64) => /lib64/libxtables.so.10
+	libxslt.so.1 (libc6,x86-64) => /lib64/libxslt.so.1
+	libxshmfence.so.1 (libc6,x86-64) => /lib64/libxshmfence.so.1
+	libxml2.so.2 (libc6,x86-64) => /lib64/libxml2.so.2
+	libxmlsec1.so.1 (libc6,x86-64) => /lib64/libxmlsec1.so.1
+	libxmlrpc_util.so.3 (libc6,x86-64) => /lib64/libxmlrpc_util.so.3
+	libxmlrpc_server_cgi.so.3 (libc6,x86-64) => /lib64/libxmlrpc_server_cgi.so.3
+	libxmlrpc_server_abyss.so.3 (libc6,x86-64) => /lib64/libxmlrpc_server_abyss.so.3
+	libxmlrpc_server.so.3 (libc6,x86-64) => /lib64/libxmlrpc_server.so.3
+	libxmlrpc_client.so.3 (libc6,x86-64) => /lib64/libxmlrpc_client.so.3
+	libxmlrpc_abyss.so.3 (libc6,x86-64) => /lib64/libxmlrpc_abyss.so.3
+	libxmlrpc.so.3 (libc6,x86-64) => /lib64/libxmlrpc.so.3
+	libxklavier.so.16 (libc6,x86-64) => /lib64/libxklavier.so.16
+...
+```
+
+To update the cache run `ldconfig` by itself.  If you look at the `/etc/ld.so.cache` you can see
+that the cache has been updated with the new date
+```
+[root@server1 ld.so.conf.d]# ls -l /etc/ld.so.cache
+-rw-r--r--. 1 root root 66432 Mar 10 21:14 /etc/ld.so.cache
+[root@server1 ld.so.conf.d]# ldconfig
+[root@server1 ld.so.conf.d]# ls -l /etc/ld.so.cache
+-rw-r--r--. 1 root root 66432 Mar 12 10:26 /etc/ld.so.cache
+[root@server1 ld.so.conf.d]#
+```
+
+`ldconfig -v` will show you more verbose information when you are updating your cache, such as
+what new libs are being added to the cache for example
+
+## Scheduling Tasks in Linux
+
+### Simple shell scripts
+
+Create a simple bash script to see what the disk free space is and mail it to the centos user
+```
+[centos@server1 ~]$ vi df.sh
+
+#!/usr/bin/bash
+FILE=/tmp/df.txt
+df -h > $FILE
+mail -s "df $(date +%F)" centos < $FILE && rm $FILE
+```
+
+In the above file the first line is the shebang, the interpreter.  This needs to be in there
+On the second line we are creating a variable called FILE and assigning it a value.  When we
+reference a variable we put a $ symbol in front of it.
+
+### Scheduling Jobs with crond
+
+```
+root@server1 ~]# ls /etc/cron*
+/etc/cron.deny  /etc/crontab
+
+/etc/cron.d:
+0hourly  raid-check  sysstat
+
+/etc/cron.daily:
+logrotate  man-db.cron
+
+/etc/cron.hourly:
+0anacron
+
+/etc/cron.monthly:
+
+/etc/cron.weekly:
+```
+
+To create a system cron, log in as root and update the crontab file
+```
+[root@server1 ~]# vi /etc/crontab
+
+HELL=/bin/bash
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=root
+
+# For details see man 4 crontabs
+
+# Example of job definition:
+# .---------------- minute (0 - 59)
+# |  .------------- hour (0 - 23)
+# |  |  .---------- day of month (1 - 31)
+# |  |  |  .------- month (1 - 12) OR jan,feb,mar,apr ...
+# |  |  |  |  .---- day of week (0 - 6) (Sunday=0 or 7) OR sun,mon,tue,wed,thu,fri,sat
+# |  |  |  |  |
+# *  *  *  *  * user-name  command to be executed
+3 8-18 * * 1-5 root df -h
+```
+Crontab legend for time intervals : `min hour d-o-m month d-o-w`
+
+In the above we can add a line at the bottom for the new cronjob we want to run
+The first 5 values are minute, hour, day of month, month, day of week.  `*` is a
+wildcard and can mean `any`.  For these values we can put in ranges that make sense,
+so in the example above for hour I have specified `8-18` which is from 8am to 6pm, and `1-5`
+for day of week, which is Mon to Fri. 0 and 7 can both be used to represent Sunday.
+
+To create a user cron job, log in as that user and run `crontab -e`, the contents of
+which could be;
+```
+MAILTO=centos
+*/5 * * * * ls /etc
+0 15 * * 5 /home/centos/df.sh
+```
+
+These are two separate cronjobs, one that runs every five minutes and performs `ls /etc`
+and mails the output to centos.  The second job runs at the top of the hour at 3 pm on a Friday,
+and it runs the df.sh script in the centos home dir.
+
+To list the cronjobs
+```
+[centos@server1 ~]$ crontab -l
+MAILTO=centos
+*/5 * * * * ls /etc
+0 15 * * 5 /home/centos/df.sh
+```
+
+crontab -r will remove the entire crontab file and delete all the jobs in it.  To
+change or remove individual jobs within the crontab file, use crontab -e
+
+### Scheduling Jobs with anacron
+
+`cron` is reliant on the system being turned on when the job is due to run, if you turn on a
+system and there were jobs that were due to run during the time the system was turned off, cron
+will not go back and run them.
+
+With `anacron` you can schedule jobs to happen a certain number of minutes after a system has
+powered on.  Ideal for desktops and laptops that get powered off regularly.
+
+The contents of anacrontab
+```
+[root@server1 ~]# cat /etc/anacrontab
+# /etc/anacrontab: configuration file for anacron
+
+# See anacron(8) and anacrontab(5) for details.
+
+SHELL=/bin/sh
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=root
+# the maximal random delay added to the base delay of the jobs
+RANDOM_DELAY=45
+# the jobs will be started during the following hours only
+START_HOURS_RANGE=3-22
+
+#period in days   delay in minutes   job-identifier   command
+1	5	cron.daily		nice run-parts /etc/cron.daily
+7	25	cron.weekly		nice run-parts /etc/cron.weekly
+@monthly 45	cron.monthly		nice run-parts /etc/cron.monthly
+```
+
+anacrontab legend : `period delay job-id command`
+
+To create a new job in anacrontab
+```
+# /etc/anacrontab: configuration file for anacron
+
+# See anacron(8) and anacrontab(5) for details.
+
+SHELL=/bin/sh
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=root
+# the maximal random delay added to the base delay of the jobs
+RANDOM_DELAY=45
+# the jobs will be started during the following hours only
+START_HOURS_RANGE=3-22
+
+#period in days   delay in minutes   job-identifier   command
+1       5       cron.daily              nice run-parts /etc/cron.daily
+7       25      cron.weekly             nice run-parts /etc/cron.weekly
+@monthly 45     cron.monthly            nice run-parts /etc/cron.monthly
+1 45 backup tar -cf /tmp/backup /etc
+```
+
+Anacrontab will also show you when the `cron.daily`, `cron.weekly` and `cron.monthly` jobs are
+configured to run.  In the case of `cron.daily`, it is scheduled to run every 1 day, 5 mins
+after the system startup.  `@monthly` is a special directive for the `cron.monthly` use case.
+
+To examine the crond service.  This is a system that controls cron and it is started up when
+on system startup
+```
+[root@server1 ~]# systemctl status crond
+● crond.service - Command Scheduler
+   Loaded: loaded (/usr/lib/systemd/system/crond.service; enabled; vendor preset: enabled)
+   Active: active (running) since Thu 2021-03-11 21:20:13 GMT; 14h ago
+ Main PID: 1127 (crond)
+   CGroup: /system.slice/crond.service
+           └─1127 /usr/sbin/crond -n
+
+Mar 11 21:20:13 server1.example.com systemd[1]: Started Command Scheduler.
+Mar 11 21:20:13 server1.example.com crond[1127]: (CRON) INFO (RANDOM_DELAY will be scaled with factor 23% if used.)
+Mar 11 21:20:15 server1.example.com crond[1127]: (CRON) INFO (running with inotify support)
+Mar 12 10:58:01 server1.example.com crond[1127]: (*system*) RELOAD (/etc/crontab)
+```
+
+If you look in the cron.daily folder you will see a script that runs anacron once a day
+```
+[root@server1 ~]# cd /etc/cron.hourly/
+[root@server1 cron.hourly]# ls
+0anacron
+[root@server1 cron.hourly]# cat 0anacron
+#!/bin/sh
+# Check whether 0anacron was run today already
+if test -r /var/spool/anacron/cron.daily; then
+    day=`cat /var/spool/anacron/cron.daily`
+fi
+if [ `date +%Y%m%d` = "$day" ]; then
+    exit 0;
+fi
+
+# Do not run jobs when on battery power
+if test -x /usr/bin/on_ac_power; then
+    /usr/bin/on_ac_power >/dev/null 2>&1
+    if test $? -eq 1; then
+    exit 0
+    fi
+fi
+/usr/sbin/anacron -s
+[root@server1 cron.hourly]# ls -al
+total 16
+drwxr-xr-x.   2 root root   22 Jun  9  2014 .
+drwxr-xr-x. 118 root root 8192 Mar 12 12:10 ..
+-rwxr-xr-x.   1 root root  392 Aug  9  2019 0anacron
+[root@server1 cron.hourly]#
+```
+
+### Scheduling Jobs with At daemon
+
+The `at` daemon is used to schedule once-off irregular jobs.  The at daemon runs as
+a service, which starts on system startup.  To check if it is installed and running
+```
+[root@server1 ~]# systemctl status atd
+● atd.service - Job spooling tools
+   Loaded: loaded (/usr/lib/systemd/system/atd.service; enabled; vendor preset: enabled)
+   Active: active (running) since Thu 2021-03-11 21:20:13 GMT; 15h ago
+ Main PID: 1129 (atd)
+   CGroup: /system.slice/atd.service
+           └─1129 /usr/sbin/atd -f
+
+Mar 11 21:20:13 server1.example.com systemd[1]: Started Job spooling tools.
+```
+
+To schedule a job using `at`
+```
+[root@server1 ~]# at noon
+at> ls /etc
+at> ls /tmp
+at> <EOT>
+job 1 at Sat Mar 13 12:00:00 2021
+```
+Noon is the next occurrence of noon. You can enter multiple commands to be run
+as part of your job.  To close out your job hit `CTRL-D`
+
+To see what jobs are in the `at` queue
+```
+[root@server1 ~]# atq
+1	Sat Mar 13 12:00:00 2021 a root
+```
+
+You can also specify days in your scheduling
+```
+[root@server1 ~]# at wednesday
+at> ls /etc
+at> <EOT>
+job 2 at Wed Mar 17 12:30:00 2021
+```
+It will run on the next available wednesday
+
+To remove an `at` job, use `atrm` with the number of the job you want to delete
+```
+[root@server1 ~]# atrm 2
+[root@server1 ~]# atq
+1	Sat Mar 13 12:00:00 2021 a root
+```
+
+You can delete multiple jobs at the same time `atrm 1 2 3`
+
+To schedule jobs at specific times and dates.  The year token has to come last,
+the month and date segments can be swapped around
+```
+[root@server1 ~]# at 13:23 jun 23 2021
+at> ls /etc
+at> <EOT>
+job 3 at Wed Jun 23 13:23:00 2021
+[root@server1 ~]# atq
+1	Sat Mar 13 12:00:00 2021 a root
+3	Wed Jun 23 13:23:00 2021 a root
+```
+
+By default every user is able to schedule and run `at` or `cron` jobs.  But you can
+prevent specific users from running either using the `deny` files, which are located
+under `/etc`.  For users you want to deny, you just enter the name of each user on a separate line.
+```
+[root@server1 ~]# ls /etc/*.deny
+/etc/at.deny  /etc/cron.deny  /etc/hosts.deny
+```
+
+You can also create `allow` files for `at` and `cron`, which means that only the people listed
+in the allow files are allowed to schedule and run jobs.  If you have users listed in both `allow`
+and `deny` for either `at` or `cron`, the `allow` file will take precedence.
+
+## Log Files and Logrotate
+
+### Auditing Login Events
+
+To see every user account whether they have logged in or not, plus the time they
+last logged in, if ever
+```
+[centos@server1 ~]$ lastlog
+Username         Port     From             Latest
+root             pts/0                     Fri Mar 12 12:07:08 +0000 2021
+bin                                        **Never logged in**
+daemon                                     **Never logged in**
+adm                                        **Never logged in**
+lp                                         **Never logged in**
+sync                                       **Never logged in**
+shutdown                                   **Never logged in**
+halt                                       **Never logged in**
+mail                                       **Never logged in**
+operator                                   **Never logged in**
+games                                      **Never logged in**
+ftp                                        **Never logged in**
+nobody                                     **Never logged in**
+systemd-network                            **Never logged in**
+dbus                                       **Never logged in**
+polkitd                                    **Never logged in**
+sshd                                       **Never logged in**
+postfix                                    **Never logged in**
+chrony                                     **Never logged in**
+centos           pts/0                     Fri Mar 12 20:57:58 +0000 2021
+tss                                        **Never logged in**
+unbound                                    **Never logged in**
+geoclue                                    **Never logged in**
+usbmuxd                                    **Never logged in**
+openvpn                                    **Never logged in**
+abrt                                       **Never logged in**
+setroubleshoot                             **Never logged in**
+lightdm                                    **Never logged in**
+nm-openconnect                             **Never logged in**
+nm-openvpn                                 **Never logged in**
+vboxadd                                    **Never logged in**
+```
+
+To see just the user accounts that have logged in, use grep -v to invert the search
+```
+[centos@server1 ~]$ lastlog | grep -v "Never"
+Username         Port     From             Latest
+root             pts/0                     Fri Mar 12 12:07:08 +0000 2021
+centos           pts/0                     Fri Mar 12 20:57:58 +0000 2021
+```
+
+The `last` command gives us a history going back a couple of weeks.  The `last`
+command reads all it's information from the `/var/log/wtmp` file
+```
+[centos@server1 ~]$ last
+root     pts/0        192.168.99.1     Thu Mar 11 21:21   still logged in
+reboot   system boot  3.10.0-1160.15.2 Thu Mar 11 21:20 - 21:01  (23:41)
+root     pts/0        192.168.99.1     Wed Mar 10 20:22 - crash (1+00:57)
+root     pts/1        192.168.99.1     Tue Mar  9 21:20 - 21:28  (00:07)
+root     pts/0        192.168.99.1     Tue Mar  9 21:02 - 10:54  (13:52)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  9 21:01 - 21:01 (3+00:00)
+root     pts/1        192.168.99.1     Mon Mar  8 21:31 - 21:33  (00:01)
+root     pts/1        192.168.99.1     Mon Mar  8 20:45 - 20:54  (00:08)
+root     pts/0        192.168.99.1     Mon Mar  8 20:45 - crash (1+00:15)
+root     pts/0        192.168.99.1     Mon Mar  8 20:24 - 20:45  (00:21)
+reboot   system boot  3.10.0-1160.15.2 Mon Mar  8 20:23 - 21:01 (4+00:38)
+root     pts/0        192.168.99.1     Tue Mar  2 21:35 - crash (5+22:47)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 19:24 - 21:01 (10+01:37)
+root     pts/0        192.168.99.1     Tue Mar  2 21:12 - crash  (-1:-48)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 18:57 - 21:01 (10+02:03)
+root     pts/0        192.168.99.1     Tue Mar  2 20:50 - down   (00:11)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 18:45 - 21:02  (02:17)
+root     pts/1        192.168.99.1     Tue Mar  2 20:44 - down   (00:05)
+root     pts/0        192.168.99.1     Tue Mar  2 17:57 - down   (02:52)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 17:54 - 20:49  (02:55)
+root     pts/0        192.168.99.1     Tue Mar  2 17:13 - down   (00:40)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 17:05 - 17:53  (00:48)
+root     tty1                          Tue Mar  2 17:04 - 17:04  (00:00)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 17:03 - 17:53  (00:50)
+root     pts/0        192.168.99.1     Tue Mar  2 17:00 - down   (00:02)
+root     tty1                          Tue Mar  2 16:54 - 16:55  (00:01)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 16:54 - 17:03  (00:09)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 16:52 - 17:03  (00:10)
+root     pts/0        192.168.99.1     Tue Mar  2 16:40 - down   (00:08)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 16:38 - 16:48  (00:10)
+root     pts/0        192.168.99.1     Tue Mar  2 10:58 - crash  (05:39)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 10:57 - 16:48  (05:51)
+centos   tty1         :0               Tue Mar  2 10:43 - 10:44  (00:01)
+centos   :0                            Tue Mar  2 10:43 - down   (00:01)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 10:43 - 10:44  (00:01)
+centos   pts/0        :0               Tue Mar  2 10:39 - crash  (00:04)
+centos   tty1         :0               Tue Mar  2 10:38 - crash  (00:04)
+centos   :0                            Tue Mar  2 10:38 - crash  (00:04)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 10:38 - 10:44  (00:06)
+root     pts/0        192.168.99.1     Sat Feb 27 16:51 - 16:53  (00:01)
+centos   tty1         :0               Sat Feb 27 16:50 - 16:53  (00:02)
+centos   :0                            Sat Feb 27 16:50 - down   (00:02)
+reboot   system boot  3.10.0-1160.15.2 Sat Feb 27 16:50 - 16:53  (00:03)
+root     pts/0        192.168.99.1     Sat Feb 27 16:46 - crash  (00:03)
+centos   tty1         :0               Sat Feb 27 16:46 - 16:49  (00:03)
+centos   :0                            Sat Feb 27 16:46 - crash  (00:03)
+reboot   system boot  3.10.0-1160.15.2 Sat Feb 27 16:45 - 16:53  (00:07)
+reboot   system boot  3.10.0-1160.15.2 Sat Feb 27 16:36 - 16:53  (00:16)
+reboot   system boot  3.10.0-1160.15.2 Sat Feb 27 16:35 - 16:53  (00:18)
+centos   tty1         :0               Sat Feb 27 16:27 - crash  (00:07)
+centos   :0                            Sat Feb 27 16:27 - crash  (00:07)
+centos   tty1         :0               Sat Feb 27 16:21 - 16:21  (00:00)
+centos   :0                            Sat Feb 27 16:21 - 16:21  (00:00)
+root     pts/0        192.168.99.1     Sat Feb 27 15:56 - crash  (00:39)
+root     tty1                          Sat Feb 27 15:47 - 15:55  (00:08)
+reboot   system boot  3.10.0-1160.el7. Sat Feb 27 15:47 - 16:53  (01:06)
+
+wtmp begins Sat Feb 27 15:47:00 2021
+```
+
+To get just the last 10 lines of history
+```
+[centos@server1 ~]$
+[centos@server1 ~]$ last -n 10
+root     pts/0        192.168.99.1     Thu Mar 11 21:21   still logged in
+reboot   system boot  3.10.0-1160.15.2 Thu Mar 11 21:20 - 21:02  (23:42)
+root     pts/0        192.168.99.1     Wed Mar 10 20:22 - crash (1+00:57)
+root     pts/1        192.168.99.1     Tue Mar  9 21:20 - 21:28  (00:07)
+root     pts/0        192.168.99.1     Tue Mar  9 21:02 - 10:54  (13:52)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  9 21:01 - 21:02 (3+00:01)
+root     pts/1        192.168.99.1     Mon Mar  8 21:31 - 21:33  (00:01)
+root     pts/1        192.168.99.1     Mon Mar  8 20:45 - 20:54  (00:08)
+root     pts/0        192.168.99.1     Mon Mar  8 20:45 - crash (1+00:15)
+root     pts/0        192.168.99.1     Mon Mar  8 20:24 - 20:45  (00:21)
+
+wtmp begins Sat Feb 27 15:47:00 2021
+```
+
+To see all users still logged in, and when they logged in
+```
+[centos@server1 ~]$ last | grep "still"
+root     pts/0        192.168.99.1     Thu Mar 11 21:21   still logged in
+```
+
+To get a history of reboot events
+```
+[centos@server1 ~]$ last reboot
+reboot   system boot  3.10.0-1160.15.2 Thu Mar 11 21:20 - 21:05  (23:45)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  9 21:01 - 21:05 (3+00:04)
+reboot   system boot  3.10.0-1160.15.2 Mon Mar  8 20:23 - 21:05 (4+00:42)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 19:24 - 21:05 (10+01:41)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 18:57 - 21:05 (10+02:07)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 18:45 - 21:02  (02:17)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 17:54 - 20:49  (02:55)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 17:05 - 17:53  (00:48)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 17:03 - 17:53  (00:50)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 16:54 - 17:03  (00:09)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 16:52 - 17:03  (00:10)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 16:38 - 16:48  (00:10)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 10:57 - 16:48  (05:51)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 10:43 - 10:44  (00:01)
+reboot   system boot  3.10.0-1160.15.2 Tue Mar  2 10:38 - 10:44  (00:06)
+reboot   system boot  3.10.0-1160.15.2 Sat Feb 27 16:50 - 16:53  (00:03)
+reboot   system boot  3.10.0-1160.15.2 Sat Feb 27 16:45 - 16:53  (00:07)
+reboot   system boot  3.10.0-1160.15.2 Sat Feb 27 16:36 - 16:53  (00:16)
+reboot   system boot  3.10.0-1160.15.2 Sat Feb 27 16:35 - 16:53  (00:18)
+reboot   system boot  3.10.0-1160.el7. Sat Feb 27 15:47 - 16:53  (01:06)
+
+wtmp begins Sat Feb 27 15:47:00 2021
+```
+
+To look at the history for the user `centos`
+```
+[centos@server1 ~]$ last centos
+centos   tty1         :0               Tue Mar  2 10:43 - 10:44  (00:01)
+centos   :0                            Tue Mar  2 10:43 - down   (00:01)
+centos   pts/0        :0               Tue Mar  2 10:39 - crash  (00:04)
+centos   tty1         :0               Tue Mar  2 10:38 - crash  (00:04)
+centos   :0                            Tue Mar  2 10:38 - crash  (00:04)
+centos   tty1         :0               Sat Feb 27 16:50 - 16:53  (00:02)
+centos   :0                            Sat Feb 27 16:50 - down   (00:02)
+centos   tty1         :0               Sat Feb 27 16:46 - 16:49  (00:03)
+centos   :0                            Sat Feb 27 16:46 - crash  (00:03)
+centos   tty1         :0               Sat Feb 27 16:27 - crash  (00:07)
+centos   :0                            Sat Feb 27 16:27 - crash  (00:07)
+centos   tty1         :0               Sat Feb 27 16:21 - 16:21  (00:00)
+centos   :0                            Sat Feb 27 16:21 - 16:21  (00:00)
+
+wtmp begins Sat Feb 27 15:47:00 2021
+```
+
+To see the last failed login attempts, use the `lastb` command.  This reads from
+the `/var/log/btmp` file and needs elevated privileges to run.
+```
+[centos@server1 ~]$ sudo lastb
+root     ssh:notty    192.168.99.1     Mon Mar  8 20:23 - 20:23  (00:00)
+root     ssh:notty    192.168.99.1     Sat Feb 27 16:51 - 16:51  (00:00)
+
+btmp begins Sat Feb 27 16:51:06 2021
+```
+
+### Auditing Root Access (use of the su and sudo commands)
+
+In the `/var/log` directory there are `secure` files that contain usage of the `su`
+and `sudo` commands.  You can grep these files for usages of su and sudo.  The sudo
+lines also show you what command was run.
+```
+[root@server1 ~]# cd /var/log
+[root@server1 log]# ls secure*
+secure  secure-20210310
+
+[root@server1 log]# grep sudo secure*
+secure:Mar 12 21:09:03 server1 sudo:  centos : TTY=pts/0 ; PWD=/home/centos ; USER=root ; COMMAND=/bin/lastb
+secure:Mar 12 21:09:03 server1 sudo: pam_unix(sudo:session): session opened for user root by root(uid=0)
+secure:Mar 12 21:09:03 server1 sudo: pam_unix(sudo:session): session closed for user root
+secure:Mar 12 21:09:08 server1 sudo:  centos : TTY=pts/0 ; PWD=/home/centos ; USER=root ; COMMAND=/bin/lastb
+secure:Mar 12 21:09:08 server1 sudo: pam_unix(sudo:session): session opened for user root by root(uid=0)
+secure:Mar 12 21:09:08 server1 sudo: pam_unix(sudo:session): session closed for user root
+
+[root@server1 log]# grep su: secure*
+secure:Mar 10 10:54:54 server1 su: pam_unix(su-l:session): session closed for user centos
+secure:Mar 10 10:54:54 server1 su: pam_unix(su-l:session): session closed for user root
+secure:Mar 12 10:38:26 server1 su: pam_unix(su-l:session): session opened for user root by root(uid=0)
+secure:Mar 12 10:38:35 server1 su: pam_unix(su-l:session): session opened for user centos by root(uid=0)
+secure:Mar 12 10:52:11 server1 su: pam_unix(su-l:session): session opened for user root by root(uid=1000)
+secure:Mar 12 11:02:00 server1 su: pam_unix(su-l:session): session closed for user root
+secure:Mar 12 11:08:55 server1 su: pam_unix(su-l:session): session opened for user root by root(uid=1000)
+secure:Mar 12 11:10:02 server1 su: pam_unix(su-l:session): session opened for user centos by root(uid=0)
+```
+
+### Scripting awk to analyse log files
+
+You can use the `awk` utility to parse out the log lines in the `secure` files
+and print out certain fields of lines that match against a certain search string
+
+This is searching for lines containing the string `sudo` and the print $0 is going
+to output the entire line
+```
+[root@server1 log]# awk '/sudo/ { print $0 } ' secure
+Mar 12 21:09:03 server1 sudo:  centos : TTY=pts/0 ; PWD=/home/centos ; USER=root ; COMMAND=/bin/lastb
+Mar 12 21:09:03 server1 sudo: pam_unix(sudo:session): session opened for user root by root(uid=0)
+Mar 12 21:09:03 server1 sudo: pam_unix(sudo:session): session closed for user root
+Mar 12 21:09:08 server1 sudo:  centos : TTY=pts/0 ; PWD=/home/centos ; USER=root ; COMMAND=/bin/lastb
+Mar 12 21:09:08 server1 sudo: pam_unix(sudo:session): session opened for user root by root(uid=0)
+Mar 12 21:09:08 server1 sudo: pam_unix(sudo:session): session closed for user root
+```
+
+To print out just the command, which is column 5;
+```
+[root@server1 log]# awk '/sudo/ { print $5 } ' secure
+sudo:
+sudo:
+sudo:
+sudo:
+sudo:
+sudo:
+```
+
+To print out the command, the user and the actual end command that was executed;
+```
+[root@server1 log]# awk '/sudo/ { print $5, $6, $14 } ' secure
+sudo: centos COMMAND=/bin/lastb
+sudo: pam_unix(sudo:session):
+sudo: pam_unix(sudo:session):
+sudo: centos COMMAND=/bin/lastb
+sudo: pam_unix(sudo:session):
+sudo: pam_unix(sudo:session):
+```
+
+You can put this command into a bash script that you can re-run
+```
+root@server1 ~]# vi secure.sh
+
+#!/usr/bin/bash
+awk "/$1/ { print \$5, \$6, \$14 }" $2
+```
+
+```
+[root@server1 ~]# chmod +x secure.sh
+[root@server1 ~]# ./secure.sh sudo: /var/log/secure
+sudo: centos COMMAND=/bin/lastb
+sudo: pam_unix(sudo:session):
+sudo: pam_unix(sudo:session):
+sudo: centos COMMAND=/bin/lastb
+sudo: pam_unix(sudo:session):
+sudo: pam_unix(sudo:session):
+```
