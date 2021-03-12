@@ -112,6 +112,40 @@ Shows the file type. Directories will be shown with a forward slash after their 
 ```
 ls -F
 ```
+
+To change directory
+```
+cd /var/log
+```
+
+To go back up one to parent directory
+```
+cd ..
+```
+
+To go directly to home directory
+```
+cd
+```
+
+To go to previous directory
+```
+cd -
+```
+
+To print current directoy
+```
+pwd
+
+/home/centos/test
+```
+
+To see true current location (if a directory is being symlinked)
+```
+pwd -P
+```
+
+
 ### File Types
 
 Everything in Linux is represented as a File
