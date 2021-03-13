@@ -2431,3 +2431,211 @@ and you can see that your log file has been rotated.
 ```
 
 ### Using Journalctl
+
+Centos7 is `systemd` based, and being `systemd` based means we have access to
+`journalctl` to read from a unified log.
+
+The configuration for journalctl is located here : `/etc/systemd/journald.conf`
+
+To look at journalctl.  It uses the same paging and search system as `less`
+```
+[root@server1 etc]# journalctl
+-- Logs begin at Sat 2021-03-13 14:43:42 GMT, end at Sat 2021-03-13 20:56:03 GMT. --
+Mar 13 14:43:42 server1.example.com systemd-journal[89]: Runtime journal is using 6.1M (max allowed 49.5M, trying to leave 74.3M free of 489.2M available → current limit 49.5M).
+Mar 13 14:43:42 server1.example.com kernel: Initializing cgroup subsys cpuset
+Mar 13 14:43:42 server1.example.com kernel: Initializing cgroup subsys cpu
+Mar 13 14:43:42 server1.example.com kernel: Initializing cgroup subsys cpuacct
+Mar 13 14:43:42 server1.example.com kernel: Linux version 3.10.0-1160.15.2.el7.x86_64 (mockbuild@kbuilder.bsys.centos.org) (gcc version 4.8.5 20150623 (Red Hat 4.8.5-44) (GCC) ) #1 SMP Wed Feb 3 15:06:38 UTC 2021
+Mar 13 14:43:42 server1.example.com kernel: Command line: BOOT_IMAGE=/vmlinuz-3.10.0-1160.15.2.el7.x86_64 root=/dev/mapper/centos-root ro crashkernel=auto rd.lvm.lv=centos/root rd.lvm.lv=centos/swap rhgb quiet
+Mar 13 14:43:42 server1.example.com kernel: e820: BIOS-provided physical RAM map:
+Mar 13 14:43:42 server1.example.com kernel: BIOS-e820: [mem 0x0000000000000000-0x000000000009fbff] usable
+Mar 13 14:43:42 server1.example.com kernel: BIOS-e820: [mem 0x000000000009fc00-0x000000000009ffff] reserved
+Mar 13 14:43:42 server1.example.com kernel: BIOS-e820: [mem 0x00000000000f0000-0x00000000000fffff] reserved
+Mar 13 14:43:42 server1.example.com kernel: BIOS-e820: [mem 0x0000000000100000-0x000000003ffeffff] usable
+Mar 13 14:43:42 server1.example.com kernel: BIOS-e820: [mem 0x000000003fff0000-0x000000003fffffff] ACPI data
+Mar 13 14:43:42 server1.example.com kernel: BIOS-e820: [mem 0x00000000fec00000-0x00000000fec00fff] reserved
+Mar 13 14:43:42 server1.example.com kernel: BIOS-e820: [mem 0x00000000fee00000-0x00000000fee00fff] reserved
+Mar 13 14:43:42 server1.example.com kernel: BIOS-e820: [mem 0x00000000fffc0000-0x00000000ffffffff] reserved
+Mar 13 14:43:42 server1.example.com kernel: NX (Execute Disable) protection: active
+Mar 13 14:43:42 server1.example.com kernel: SMBIOS 2.5 present.
+Mar 13 14:43:42 server1.example.com kernel: DMI: innotek GmbH VirtualBox/VirtualBox, BIOS VirtualBox 12/01/2006
+Mar 13 14:43:42 server1.example.com kernel: Hypervisor detected: KVM
+Mar 13 14:43:42 server1.example.com kernel: e820: update [mem 0x00000000-0x00000fff] usable ==> reserved
+Mar 13 14:43:42 server1.example.com kernel: e820: remove [mem 0x000a0000-0x000fffff] usable
+Mar 13 14:43:42 server1.example.com kernel: e820: last_pfn = 0x3fff0 max_arch_pfn = 0x400000000
+Mar 13 14:43:42 server1.example.com kernel: MTRR default type: uncachable
+Mar 13 14:43:42 server1.example.com kernel: MTRR variable ranges disabled:
+Mar 13 14:43:42 server1.example.com kernel: PAT configuration [0-7]: WB  WC  UC- UC  WB  WP  UC- UC
+Mar 13 14:43:42 server1.example.com kernel: CPU MTRRs all blank - virtualized system.
+Mar 13 14:43:42 server1.example.com kernel: found SMP MP-table at [mem 0x0009fff0-0x0009ffff] mapped at [ffffffffff200ff0]
+Mar 13 14:43:42 server1.example.com kernel: Base memory trampoline at [ffff918c00099000] 99000 size 24576
+Mar 13 14:43:42 server1.example.com kernel: BRK [0x20474000, 0x20474fff] PGTABLE
+Mar 13 14:43:42 server1.example.com kernel: BRK [0x20475000, 0x20475fff] PGTABLE
+Mar 13 14:43:42 server1.example.com kernel: BRK [0x20476000, 0x20476fff] PGTABLE
+Mar 13 14:43:42 server1.example.com kernel: BRK [0x20477000, 0x20477fff] PGTABLE
+Mar 13 14:43:42 server1.example.com kernel: BRK [0x20478000, 0x20478fff] PGTABLE
+Mar 13 14:43:42 server1.example.com kernel: RAMDISK: [mem 0x343cb000-0x361ddfff]
+Mar 13 14:43:42 server1.example.com kernel: Early table checksum verification disabled
+...
+```
+
+To see the most recent events, `journalctl -n 15` will show the last 15 entries.
+When `-n` is used by itself, the default number of entries shown is 10.
+To follow or tail the journalctl: `journalctl -f`.  `journalctl -b` will show the
+entries since the most recent boot, but that's the default behaviour in any case.
+Journal doesn't persist old entries, it get's wiped when the machine is restarted
+
+If you want to just look at entries being produced by a specific service or "unit"
+you can run something like the following
+```
+[root@server1 etc]# journalctl -u sshd.service
+-- Logs begin at Sat 2021-03-13 14:43:42 GMT, end at Sat 2021-03-13 21:08:59 GMT. --
+Mar 13 14:43:54 server1.example.com systemd[1]: Starting OpenSSH server daemon...
+Mar 13 14:43:54 server1.example.com sshd[1114]: Server listening on 0.0.0.0 port 22.
+Mar 13 14:43:54 server1.example.com sshd[1114]: Server listening on :: port 22.
+Mar 13 14:43:54 server1.example.com systemd[1]: Started OpenSSH server daemon.
+Mar 13 14:49:05 server1.example.com sshd[1513]: Accepted password for root from 192.168.99.1 port 50469 ssh2
+```
+
+You can narrow down your search with time ranges, using the `--since` and `--until`
+flags
+```
+[root@server1 etc]# journalctl --since "2021-01-11 10:00:00"
+-- Logs begin at Sat 2021-03-13 14:43:42 GMT, end at Sat 2021-03-13 21:11:33 GMT. --
+Mar 13 14:43:42 server1.example.com systemd-journal[89]: Runtime journal is using 6.1M (max allowed 49.5M, trying to leave 74.3M free of 489.2M available → current limit 49.5M).
+Mar 13 14:43:42 server1.example.com kernel: Initializing cgroup subsys cpuset
+Mar 13 14:43:42 server1.example.com kernel: Initializing cgroup subsys cpu
+Mar 13 14:43:42 server1.example.com kernel: Initializing cgroup subsys cpuacct
+...
+```
+
+Time queries like ```[root@server1 etc]# journalctl --since "10 minutes ago"```
+are also possible
+
+To make journalctl reboot persistent there are two approaches. You can do both to
+really ensure that journalctl is persistent.  You need to reboot the system for
+these measures to take effect.
+1) Create a journal directory under /var/log
+```
+[root@server1 etc]# mkdir /var/log/journal
+```
+
+2) Edit the `journald.conf` file, make sure the `storage` setting is enabled and the
+value is `persistent`
+```
+[root@server1 etc]# vi /etc/systemd/journald.conf
+
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+#
+# Entries in this file show the compile time defaults.
+# You can change settings by editing this file.
+# Defaults can be restored by simply deleting this file.
+#
+# See journald.conf(5) for details.
+
+[Journal]
+Storage=persistent
+#Compress=yes
+#Seal=yes
+#SplitMode=uid
+#SyncIntervalSec=5m
+#RateLimitInterval=30s
+...
+```
+
+To see reboots from a journalctl perspective
+```
+[root@server1 ~]# journalctl --list-boots
+-1 d843037478c948198af11336312c32a4 Sat 2021-03-13 14:43:42 GMT—Sat 2021-03-13 21:15:21 GMT
+ 0 56d4be0a3ecb47c7929957c5a75488d2 Sat 2021-03-13 21:15:28 GMT—Sat 2021-03-13 21:15:57 GMT
+ ```
+ The current file that journal is writing to is file 0, the previous one is -1.
+ To view previous journal files, you pass in the index of the file you want
+ ```
+ [root@server1 ~]# journalctl -b -1
+ ```
+
+ ## Introducing SELinux
+
+SELinux is the mandatory access control system for linux.
+
+### View SELinux Modes and Context
+
+To get the current SELinux mode
+```
+[root@server1 ~]# getenforce
+Enforcing
+```
+
+To get the SELinux status
+```
+[root@server1 ~]# sestatus
+SELinux status:                 enabled
+SELinuxfs mount:                /sys/fs/selinux
+SELinux root directory:         /etc/selinux
+Loaded policy name:             targeted
+Current mode:                   enforcing
+Mode from config file:          enforcing
+Policy MLS status:              enabled
+Policy deny_unknown status:     allowed
+Max kernel policy version:      31
+```
+
+With `enforcing` SELinux is checking the rules and applying the rules.  With `permissive`
+mode, it's reading the rules but not enforcing them, but it will log that those things
+are happening. `disabled` means that no SELinux policy is loaded.
+
+The `Mode from config file` is also enforcing.  The config file is located here
+```
+[root@server1 ~]# cat /etc/selinux/config
+
+# This file controls the state of SELinux on the system.
+# SELINUX= can take one of these three values:
+#     enforcing - SELinux security policy is enforced.
+#     permissive - SELinux prints warnings instead of enforcing.
+#     disabled - No SELinux policy is loaded.
+SELINUX=enforcing
+# SELINUXTYPE= can take one of three values:
+#     targeted - Targeted processes are protected,
+#     minimum - Modification of targeted policy. Only selected processes are protected.
+#     mls - Multi Level Security protection.
+SELINUXTYPE=targeted
+```
+
+If you disable selinux, perform some actions and then re-enable, you have to change
+the context of the files to have the correct value.
+
+`setenforce 0` or `setenforce permissive` will change mode to `permissive`.  `setenforce 1`
+will set it back to `enforcing`.
+
+To disable SELinux, you need to change the mode in the config file and then reboot the
+system for that to take effect.
+
+To get context labels
+1) For users
+```
+[root@server1 ~]# id -Z
+unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
+```
+
+2) For processes
+```
+[root@server1 ~]# ps -Z
+LABEL                             PID TTY          TIME CMD
+unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 1467 pts/0 00:00:00 bash
+unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 1724 pts/0 00:00:00 ps
+```
+
+3) For files and directories
+```
+[root@server1 etc]# ls -Z /etc/shadow
+----------. root root system_u:object_r:shadow_t:s0    /etc/shadow
+
+[root@server1 etc]# ls -Z /etc/xml
+-rw-r--r--. root root system_u:object_r:etc_t:s0       catalog
+```
