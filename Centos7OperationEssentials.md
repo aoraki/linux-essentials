@@ -2214,3 +2214,220 @@ sudo: centos COMMAND=/bin/lastb
 sudo: pam_unix(sudo:session):
 sudo: pam_unix(sudo:session):
 ```
+
+### Configuring System Logging
+
+`rsyslog` is a rocket-fast syslog daemon.  It improves on the standard syslog daemon,
+it is much quicker and it can integrate with various database systems, ie. you
+can write through to databases instead of just flat files.
+```
+[root@server1 etc]# systemctl status rsyslog
+● rsyslog.service - System Logging Service
+   Loaded: loaded (/usr/lib/systemd/system/rsyslog.service; enabled; vendor preset: enabled)
+   Active: active (running) since Sat 2021-03-13 15:02:57 GMT; 7s ago
+     Docs: man:rsyslogd(8)
+           http://www.rsyslog.com/doc/
+ Main PID: 1688 (rsyslogd)
+   CGroup: /system.slice/rsyslog.service
+           └─1688 /usr/sbin/rsyslogd -n
+
+Mar 13 15:02:57 server1.example.com systemd[1]: Stopped System Logging Service.
+Mar 13 15:02:57 server1.example.com systemd[1]: Starting System Logging Service...
+Mar 13 15:02:57 server1.example.com rsyslogd[1688]:  [origin software="rsyslogd" swVersion="8.24.0-57.el7_9" x-pid="1688" x-info="http://www.rsyslog.com"] start
+Mar 13 15:02:57 server1.example.com systemd[1]: Started System Logging Service.
+```
+
+The rsyslog config files are located in the `/etc` directory
+```
+[root@server1 etc]# ls rsyslog*
+rsyslog.conf
+
+rsyslog.d:
+listen.conf
+```
+
+To look at the config for rsyslog, run `vi rsyslog.conf`
+
+The first thing you see are the modules that can be loaded.
+```
+#### MODULES ####
+
+# The imjournal module bellow is now used as a message source instead of imuxsock.
+$ModLoad imuxsock # provides support for local system logging (e.g. via logger command)
+$ModLoad imjournal # provides access to the systemd journal
+#$ModLoad imklog # reads kernel messages (the same are read from journald)
+#$ModLoad immark  # provides --MARK-- message capability
+
+# Provides UDP syslog reception
+#$ModLoad imudp
+#$UDPServerRun 514
+
+# Provides TCP syslog reception
+#$ModLoad imtcp
+#$InputTCPServerRun 514
+```
+
+
+It also shows the logging rules.  The `.*`` means that all logging levels are enabled
+(such as `INFO`, `DEBUG`, `ERROR` etc.).  If you look at the rule for `/var/log/messages`
+it stipulates that everything with .info level debugging gets written there APART
+from `mail`, `authpriv` and `cron`
+```
+#### RULES ####
+
+# Log all kernel messages to the console.
+# Logging much else clutters up the screen.
+#kern.*                                                 /dev/console
+
+# Log anything (except mail) of level info or higher.
+# Don't log private authentication messages!
+*.info;mail.none;authpriv.none;cron.none                /var/log/messages
+
+# The authpriv file has restricted access.
+authpriv.*                                              /var/log/secure
+
+# Log all the mail messages in one place.
+mail.*                                                  -/var/log/maillog
+
+
+# Log cron stuff
+cron.*                                                  /var/log/cron
+
+# Everybody gets emergency messages
+*.emerg                                                 :omusrmsg:*
+
+# Save news errors of level crit and higher in a special file.
+uucp,news.crit                                          /var/log/spooler
+
+# Save boot messages also to boot.log
+local7.*                                                /var/log/boot.log
+
+
+# ### begin forwarding rule ###
+# The statement between the begin ... end define a SINGLE forwarding
+# rule. They belong together, do NOT split them. If you create multiple
+# forwarding rules, duplicate the whole block!
+# Remote Logging (we use TCP for reliable delivery)
+#
+# An on-disk queue is created for this action. If the remote host is
+# down, messages are spooled to disk and sent when it is up again.
+#$ActionQueueFileName fwdRule1 # unique name prefix for spool files
+#$ActionQueueMaxDiskSpace 1g   # 1gb space limit (use as much as possible)
+#$ActionQueueSaveOnShutdown on # save messages to disk on shutdown
+#$ActionQueueType LinkedList   # run asynchronously
+#$ActionResumeRetryCount -1    # infinite retries if host is down
+# remote host is: name/ip:port, e.g. 192.168.0.1:514, port optional
+#*.* @@remote-host:514
+# ### end of the forwarding rule ###
+```
+
+You can add in your own logging rule, add a line like the following to the conf file
+The local1 facility will log info logging and higher to the /var/log/john file, which
+will be created when logs entries are generated.  You need to restart the `rsyslog`
+daemon for the new rule to come into effect with `systemctl restart rsyslog`
+```
+local1.info /var/log/john
+```
+
+We can then generate a log message using the `logger` program, and it will show up
+in both `/var/log/messages` and `/var/log/john`
+```
+root@server1 etc]# logger -p local1.warn "Test WARNING"
+[root@server1 etc]# tail /var/log/messages
+Mar 13 15:03:03 server1 NetworkManager[739]: <info>  [1615647783.0023] dhcp4 (enp0s3):   domain name 'home'
+Mar 13 15:03:03 server1 NetworkManager[739]: <info>  [1615647783.0023] dhcp4 (enp0s3): state changed bound -> bound
+Mar 13 15:03:03 server1 dbus[679]: [system] Activating via systemd: service name='org.freedesktop.nm_dispatcher' unit='dbus-org.freedesktop.nm-dispatcher.service'
+Mar 13 15:03:03 server1 systemd: Starting Network Manager Script Dispatcher Service...
+Mar 13 15:03:03 server1 dhclient[870]: bound to 10.0.2.9 -- renewal in 252 seconds.
+Mar 13 15:03:03 server1 dbus[679]: [system] Successfully activated service 'org.freedesktop.nm_dispatcher'
+Mar 13 15:03:03 server1 systemd: Started Network Manager Script Dispatcher Service.
+Mar 13 15:03:03 server1 nm-dispatcher: req:1 'dhcp4-change' [enp0s3]: new request (4 scripts)
+Mar 13 15:03:03 server1 nm-dispatcher: req:1 'dhcp4-change' [enp0s3]: start running ordered scripts...
+Mar 13 15:04:35 server1 root: Test WARNING
+[root@server1 etc]# tail /var/log/john
+Mar 13 15:04:35 server1 root: Test WARNING
+```
+
+### Rotating log files
+
+If log files are left to grow and accumulate unchecked, they will eventually fill
+the hard disk of our system. We can prevent this from happening by clearing down
+old logs based on how old they are or based on how big the log files get.  This can
+be controlled by the `logrotate` utility.
+
+`logrotate` is run daily as part of a daily cron job
+```
+[root@server1 etc]# cd /etc/cron.daily/
+[root@server1 cron.daily]# pwd
+/etc/cron.daily
+[root@server1 cron.daily]# ls
+logrotate  man-db.cron
+```
+
+The configuration for logrotate is `/etc/logrotate.conf`.
+```
+# see "man logrotate" for details
+# rotate log files weekly
+weekly
+
+# keep 4 weeks worth of backlogs
+rotate 4
+
+# create new (empty) log files after rotating old ones
+create
+
+# use date as a suffix of the rotated file
+dateext
+
+# uncomment this if you want your log files compressed
+#compress
+
+# RPM packages drop log rotation information into this directory
+include /etc/logrotate.d
+
+# no packages own wtmp and btmp -- we'll rotate them here
+/var/log/wtmp {
+    monthly
+    create 0664 root utmp
+        minsize 1M
+    rotate 1
+}
+
+/var/log/btmp {
+    missingok
+    monthly
+    create 0600 root utmp
+    rotate 1
+}
+
+# system-specific logs may be also be configured here.
+```
+
+We can add a simple rule for the log file we created above.  Adding the following
+will ensure our `/var/log/john` log file will get rotated.
+* `missingok` - means that if the log file is not there, then no error will be thrown
+* `notifempty` - means that it will not attempt to rotate any empty log files
+* `size 10` - it will rotate the logfile if it exceeds 10 bytes in size.  This overrides the weekly setting above, as you can rotate either on a schedule or on log file size.
+* `compress` - it will compress the rotated log file
+
+It will also use some global defaults specified in the conf file such as
+* `create` - a new empty log file will be created after the old one is rotated.
+* `rotate 4` - it will maintain 4 old rotated logs at any one time.  Older log files get deleted
+```
+/var/log/john {
+    missingok
+    notifempty
+    size 10
+    compress
+}
+```
+
+Once you have updated the logrotate.conf file then you can manually run logrotate
+and you can see that your log file has been rotated.
+```
+[root@server1 etc]# logrotate /etc/logrotate.conf
+[root@server1 etc]# ls /var/log/john*
+/var/log/john  /var/log/john-20210313.gz
+```
+
+### Using Journalctl
