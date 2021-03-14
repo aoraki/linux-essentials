@@ -2617,7 +2617,7 @@ To disable SELinux, you need to change the mode in the config file and then rebo
 system for that to take effect.
 
 To get context labels
-1) For users
+1) For users (has to be the current user)
 ```
 [root@server1 ~]# id -Z
 unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
@@ -2638,4 +2638,521 @@ unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 1724 pts/0 00:00:00 ps
 
 [root@server1 etc]# ls -Z /etc/xml
 -rw-r--r--. root root system_u:object_r:etc_t:s0       catalog
+```
+
+### View SELinux Logs
+
+The `audit.log` file is the log file that SELinux outputs to.
+```
+[root@server1 log]# cd /var/log/audit/audit.log
+type=CRED_DISP msg=audit(1615739401.908:2111): pid=14643 uid=0 auid=0 ses=138 subj=system_u:system_r:crond_t:s0-s0:c0.c1023 msg='op=PAM:setcred grantors=pam_env,pam_unix acct="root" exe="/usr/sbin/crond" hostname=? addr=? terminal=cron res=success'
+type=USER_END msg=audit(1615739401.908:2112): pid=14643 uid=0 auid=0 ses=138 subj=system_u:system_r:crond_t:s0-s0:c0.c1023 msg='op=PAM:session_close grantors=pam_loginuid,pam_keyinit,pam_limits,pam_systemd acct="root" exe="/usr/sbin/crond" hostname=? addr=? terminal=cron res=success'
+type=SERVICE_START msg=audit(1615739428.020:2113): pid=1 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:init_t:s0 msg='unit=NetworkManager-dispatcher comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+type=SERVICE_STOP msg=audit(1615739437.845:2114): pid=1 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:init_t:s0 msg='unit=NetworkManager-dispatcher comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+type=SERVICE_START msg=audit(1615739549.549:2115): pid=1 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:init_t:s0 msg='unit=NetworkManager-dispatcher comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+type=SERVICE_STOP msg=audit(1615739559.850:2116): pid=1 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:init_t:s0 msg='unit=NetworkManager-dispatcher comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+type=SERVICE_START msg=audit(1615739684.752:2117): pid=1 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:init_t:s0 msg='unit=NetworkManager-dispatcher comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+type=SERVICE_STOP msg=audit(1615739694.851:2118): pid=1 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:init_t:s0 msg='unit=NetworkManager-dispatcher comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+type=SERVICE_START msg=audit(1615739783.656:2119): pid=1 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:init_t:s0 msg='unit=NetworkManager-dispatcher comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+type=SERVICE_STOP msg=audit(1615739793.851:2120): pid=1 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:init_t:s0 msg='unit=NetworkManager-dispatcher comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+```
+
+If we are in permissive mode we log the error but still allow the action to take place.
+The command `ausearch -m avc` can be used to search the SELinux logs and see what
+actions were done while SELinux was in `permissive` mode.  Adding `ts recent` will
+limit entries to the last 10 minutes
+```
+[root@server1 audit]# ls -Z /etc/shadow
+----------. root root system_u:object_r:shadow_t:s0    /etc/shadow
+[root@server1 audit]#
+[root@server1 audit]# chcon -t unlabeled_t /etc/shadow
+[root@server1 audit]# ls -Z /etc/shadow
+----------. root root system_u:object_r:unlabeled_t:s0 /etc/shadow
+[root@server1 audit]# chcon -t unlabeled_t /etc/shadow
+[root@server1 audit]# ausearch -m avc -ts recent
+----
+time->Sun Mar 14 16:44:53 2021
+type=PROCTITLE msg=audit(1615740293.564:2141): proctitle=2F7573722F7362696E2F756E69785F63686B70776400726F6F74006E6F6E756C6C
+type=SYSCALL msg=audit(1615740293.564:2141): arch=c000003e syscall=2 success=no exit=-13 a0=7fbad18c0573 a1=80000 a2=1b6 a3=24 items=0 ppid=14831 pid=14856 auid=4294967295 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=(none) ses=4294967295 comm="unix_chkpwd" exe="/usr/sbin/unix_chkpwd" subj=system_u:system_r:chkpwd_t:s0-s0:c0.c1023 key=(null)
+type=AVC msg=audit(1615740293.564:2141): avc:  denied  { read } for  pid=14856 comm="unix_chkpwd" name="shadow" dev="dm-0" ino=5155781 scontext=system_u:system_r:chkpwd_t:s0-s0:c0.c1023 tcontext=system_u:object_r:unlabeled_t:s0 tclass=file permissive=0
+```
+In the above example we are checking the context of the `/etc/shadow file`, and it
+currently has the correct type.  If we change it's context type to `unlabeled_t`
+using `chcon` and then try and log in we will see an entry in the `audit.log` file.
+
+To restore the correct context info for the `/etc/shadaow` file use the following.  SELinux
+has a master file of correct contexts that should be set, so it can restore from that
+```
+[root@server1 audit]# restorecon /etc/shadow
+[root@server1 audit]# ls -Z /etc/shadow
+----------. root root system_u:object_r:shadow_t:s0    /etc/shadow
+```
+
+To see the master list of contexts for the system files run `semanage fcontext -l`
+That output is very large so we can grep for what we are intested in, in this case
+the `shadow` file
+```
+[root@server1 audit]# semanage fcontext -l | grep shadow
+/etc/shadow.*                                      regular file       system_u:object_r:shadow_t:s0
+/etc/gshadow.*                                     regular file       system_u:object_r:shadow_t:s0
+/etc/nshadow.*                                     regular file       system_u:object_r:shadow_t:s0
+/var/db/shadow.*                                   regular file       system_u:object_r:shadow_t:s0
+/etc/security/opasswd                              regular file       system_u:object_r:shadow_t:s0
+/etc/security/opasswd\.old                         regular file       system_u:object_r:shadow_t:s0
+```
+
+The file context information is actually held in files that hold default context info for files and
+directories.  The location is
+```
+[root@server1 files]# cd /etc/selinux/targeted/contexts/files
+[root@server1 files]# ls
+file_contexts  file_contexts.bin  file_contexts.homedirs  file_contexts.homedirs.bin  file_contexts.local  file_contexts.local.bin  file_contexts.subs  file_contexts.subs_dist  media
+```
+
+### Working with SELinux Booleans and Ports
+
+You can adjust SELinux policies by using the SELinux booleans.  Booleans allow policies to the
+changed using simple "on" and "off" settings.
+
+To list the current list of SELinux booleans in teh system
+```
+[root@server1 files]# getsebool -a
+abrt_anon_write --> off
+abrt_handle_event --> off
+abrt_upload_watch_anon_write --> on
+antivirus_can_scan_system --> off
+antivirus_use_jit --> off
+auditadm_exec_content --> on
+authlogin_nsswitch_use_ldap --> off
+authlogin_radius --> off
+authlogin_yubikey --> off
+awstats_purge_apache_log_files --> off
+boinc_execmem --> on
+cdrecord_read_content --> off
+cluster_can_network_connect --> off
+cluster_manage_all_files --> off
+cluster_use_execmem --> off
+cobbler_anon_write --> off
+...
+```
+
+To get more information regarding each boolean use the semanage command.  This gives
+a list of booleans, it's current state, the default state and the description for
+the boolean
+```
+[root@server1 files]# semanage boolean -l
+SELinux boolean                State  Default Description
+
+privoxy_connect_any            (on   ,   on)  Allow privoxy to connect any
+smartmon_3ware                 (off  ,  off)  Allow smartmon to 3ware
+mpd_enable_homedirs            (off  ,  off)  Allow mpd to enable homedirs
+xdm_sysadm_login               (off  ,  off)  Allow xdm to sysadm login
+xen_use_nfs                    (off  ,  off)  Allow xen to use nfs
+mozilla_read_content           (off  ,  off)  Allow mozilla to read content
+ssh_chroot_rw_homedirs         (off  ,  off)  Allow ssh to chroot rw homedirs
+mount_anyfile                  (on   ,   on)  Allow mount to anyfile
+cron_userdomain_transition     (on   ,   on)  Allow cron to userdomain transition
+xdm_write_home                 (off  ,  off)  Allow xdm to write home
+openvpn_can_network_connect    (on   ,   on)  Allow openvpn to can network connect
+...
+```
+
+To see the status of a particular se boolean
+```
+[root@server1 files]# getsebool httpd_read_user_content
+httpd_read_user_content --> off
+```
+
+To turn a boolean "on", in this case the httpd_read_user_content boolean.  However
+this will only persist for the current session, if you reboot the boolean will be
+set back to it's previous state.
+```
+[root@server1 files]# setsebool !$ on
+setsebool httpd_read_user_content on
+[root@server1 files]# getsebool httpd_read_user_content
+httpd_read_user_content --> on
+```
+
+However the above command will only persist for the current session, if you reboot
+the boolean will be set back to it's previous state.  To permanently set the boolean
+use the following
+```
+[root@server1 files]# setsebool -P httpd_read_user_content on
+```
+
+To get a list of SELinux ports types
+```
+[root@server1 files]# semanage port -l
+SELinux Port Type              Proto    Port Number
+
+afs3_callback_port_t           tcp      7001
+afs3_callback_port_t           udp      7001
+afs_bos_port_t                 udp      7007
+afs_fs_port_t                  tcp      2040
+afs_fs_port_t                  udp      7000, 7005
+afs_ka_port_t                  udp      7004
+afs_pt_port_t                  tcp      7002
+afs_pt_port_t                  udp      7002
+afs_vl_port_t                  udp      7003
+agentx_port_t                  tcp      705
+agentx_port_t                  udp      705
+amanda_port_t                  tcp      10080-10083
+amanda_port_t                  udp      10080-10082
+...
+```
+
+To see the SELinux port info for `ssh`.
+```
+[root@server1 files]# semanage port -l | grep ssh
+ssh_port_t                     tcp      22
+```
+
+To change the SELinux port setting.  If we reconfigured SSH to use a new port then
+we would also need to change the SELinux port policy to ensure that it would allow
+traffic over the new port
+```
+[root@server1 files]# semanage port -a -t ssh_port_t -p tcp 2222
+```
+
+## Managing Software on Centos7
+
+### Software Management with RPM
+
+RPM is the basic package manager tool used in Redhat (RHEL) and Centos systems.
+
+To install software using `yum`.  For this example when we are prompted to install
+or download it, we will download it. This step is required in order to demo how
+we can use the `rpm` command on downloaded packages later
+```
+[root@server1 ~]# yum install httpd
+```
+
+To see the httpd packages in the yum cache (that is where they are downloaded to).
+```
+[root@server1 ~]# tree /var/cache/yum
+/var/cache/yum
+└── x86_64
+    └── 7
+        ├── base
+        │   ├── 6d0c3a488c282fe537794b5946b01e28c7f44db79097bb06826e1c0c88bad5ef-primary.sqlite.bz2
+        │   ├── a4e2b46586aa556c3b6f814dad5b16db5a669984d66b68e873586cd7c7253301-c7-x86_64-comps.xml.gz
+        │   ├── cachecookie
+        │   ├── d6d94c7d406fe7ad4902a97104b39a0d8299451832a97f31d71653ba982c955b-filelists.sqlite.bz2
+        │   ├── gen
+        │   │   ├── comps.xml
+        │   │   ├── filelists_db.sqlite
+        │   │   └── primary_db.sqlite
+        │   ├── mirrorlist.txt
+        │   ├── packages
+        │   │   └── mailcap-2.1.41-2.el7.noarch.rpm
+        │   └── repomd.xml
+        ├── epel
+        │   ├── 02940900d5b6b6d28608cec00729e979a5523fdc67996ba6e6e2c33d5acfd32c-primary.sqlite.bz2
+        │   ├── 16395c89edfbd0e0915c06ef2df4573aea1c42b8e27e7e18b32329ee4fb3b2cb-comps-Everything.x86_64.xml.gz
+        │   ├── 1f894bb4020fd90db9a87134fd22465f8a3c1ead4ac85c32afbf222142289a3f-updateinfo.xml.bz2
+        │   ├── cachecookie
+        │   ├── gen
+        │   │   ├── comps.xml
+        │   │   ├── filelists_db.sqlite
+        │   │   └── primary_db.sqlite
+        │   ├── metalink.xml
+        │   ├── packages
+        │   └── repomd.xml
+        ├── extras
+        │   ├── cachecookie
+        │   ├── f566f80ea90a80473260b93311d51f669dedd898c7a25836b121b0e44fdc9e75-primary.sqlite.bz2
+        │   ├── gen
+        │   │   └── primary_db.sqlite
+        │   ├── mirrorlist.txt
+        │   ├── packages
+        │   └── repomd.xml
+        ├── timedhosts
+        ├── timedhosts.txt
+        └── updates
+            ├── 7ef1bb9522c9f351c89eca2ff7335901b182519e3080d06341ffe5cc75a5f53e-primary.sqlite.bz2
+            ├── cachecookie
+            ├── gen
+            │   ├── filelists_db.sqlite
+            │   └── primary_db.sqlite
+            ├── mirrorlist.txt
+            ├── packages
+            │   ├── httpd-2.4.6-97.el7.centos.x86_64.rpm
+            │   └── httpd-tools-2.4.6-97.el7.centos.x86_64.rpm
+            └── repomd.xml
+```
+
+To list all the rpm packages currently installed
+```
+[root@server1 packages]# rpm -qa
+python-ntplib-0.3.2-1.el7.noarch
+openssh-server-7.4p1-21.el7.x86_64
+setroubleshoot-server-3.2.30-8.el7.x86_64
+libvorbis-1.3.3-8.el7.1.x86_64
+ncurses-base-5.9-14.20130511.el7_4.noarch
+sgpio-1.2.0.10-13.el7.x86_64
+gnome-abrt-0.3.4-9.el7.x86_64
+libtdb-1.3.18-1.el7.x86_64
+libstdc++-4.8.5-44.el7.x86_64
+python-nss-0.16.0-3.el7.x86_64
+libwacom-0.30-1.el7.x86_64
+libwayland-client-1.15.0-1.el7.x86_64
+...
+```
+
+To get info on a particular package that is installed
+```
+[root@server1 packages]# rpm -qi nmap
+Name        : nmap
+Epoch       : 2
+Version     : 6.40
+Release     : 19.el7
+Architecture: x86_64
+Install Date: Sun 14 Mar 2021 21:09:12 GMT
+Group       : Applications/System
+Size        : 16916966
+License     : GPLv2 and LGPLv2+ and GPLv2+ and BSD
+Signature   : RSA/SHA256, Thu 22 Aug 2019 22:36:20 IST, Key ID 24c6a8a7f4a80eb5
+Source RPM  : nmap-6.40-19.el7.src.rpm
+Build Date  : Fri 09 Aug 2019 02:16:48 IST
+Build Host  : x86-01.bsys.centos.org
+Relocations : (not relocatable)
+Packager    : CentOS BuildSystem <http://bugs.centos.org>
+Vendor      : CentOS
+URL         : http://nmap.org/
+Summary     : Network exploration tool and security scanner
+Description :
+Nmap is a utility for network exploration or security auditing.  It supports
+ping scanning (determine which hosts are up), many port scanning techniques
+(determine what services the hosts are offering), and TCP/IP fingerprinting
+(remote host operating system identification). Nmap also offers flexible target
+and port specification, decoy scanning, determination of TCP sequence
+predictability characteristics, reverse-identd scanning, and more. In addition
+to the classic command-line nmap executable, the Nmap suite includes a flexible
+data transfer, redirection, and debugging tool (netcat utility ncat), a utility
+for comparing scan results (ndiff), and a packet generation and response analysis
+tool (nping).
+```
+
+To list the contents of a package
+```
+root@server1 packages]# rpm -ql nmap
+/usr/bin/ndiff
+/usr/bin/nmap
+/usr/bin/nping
+/usr/share/doc/nmap-6.40
+/usr/share/doc/nmap-6.40/COPYING
+/usr/share/doc/nmap-6.40/README
+/usr/share/doc/nmap-6.40/nmap.usage.txt
+/usr/share/man/de/man1/nmap.1.gz
+/usr/share/man/es/man1/nmap.1.gz
+/usr/share/man/fr/man1/nmap.1.gz
+...
+```
+
+To get info for a package that has not yet been installed, and to get a list of
+what is included in ot
+```
+[root@server1 packages]# rpm -qpi httpd-2.4.6-97.el7.centos.x86_64.rpm
+[root@server1 packages]# rpm -qpi httpd-2.4.6-97.el7.centos.x86_64.rpm
+Name        : httpd
+Version     : 2.4.6
+Release     : 97.el7.centos
+Architecture: x86_64
+Install Date: (not installed)
+Group       : System Environment/Daemons
+Size        : 9821064
+License     : ASL 2.0
+Signature   : RSA/SHA256, Wed 18 Nov 2020 14:17:43 GMT, Key ID 24c6a8a7f4a80eb5
+Source RPM  : httpd-2.4.6-97.el7.centos.src.rpm
+Build Date  : Mon 16 Nov 2020 16:21:17 GMT
+Build Host  : x86-02.bsys.centos.org
+Relocations : (not relocatable)
+Packager    : CentOS BuildSystem <http://bugs.centos.org>
+Vendor      : CentOS
+URL         : http://httpd.apache.org/
+Summary     : Apache HTTP Server
+Description :
+The Apache HTTP Server is a powerful, efficient, and extensible
+web server.
+
+[root@server1 packages]# rpm -qpl httpd-2.4.6-97.el7.centos.x86_64.rpm
+[root@server1 packages]# rpm -qpl httpd-2.4.6-97.el7.centos.x86_64.rpm
+/etc/httpd
+/etc/httpd/conf
+/etc/httpd/conf.d
+/etc/httpd/conf.d/README
+/etc/httpd/conf.d/autoindex.conf
+/etc/httpd/conf.d/userdir.conf
+/etc/httpd/conf.d/welcome.conf
+/etc/httpd/conf.modules.d
+/etc/httpd/conf.modules.d/00-base.conf
+/etc/httpd/conf.modules.d/00-dav.conf
+/etc/httpd/conf.modules.d/00-lua.conf
+/etc/httpd/conf.modules.d/00-mpm.conf
+/etc/httpd/conf.modules.d/00-proxy.conf
+/etc/httpd/conf.modules.d/00-systemd.conf
+/etc/httpd/conf.modules.d/01-cgi.conf
+/etc/httpd/conf/httpd.conf
+/etc/httpd/conf/magic
+/etc/httpd/logs
+/etc/httpd/modules
+...
+```
+
+If we try to install the package directly using `rpm -i` then we see some potential
+issues with installing each package individually.  In the below case we see that
+we get errors on install because there are missing dependencies
+```
+[root@server1 packages]# rpm -i httpd-2.4.6-97.el7.centos.x86_64.rpm
+error: Failed dependencies:
+	/etc/mime.types is needed by httpd-2.4.6-97.el7.centos.x86_64
+	httpd-tools = 2.4.6-97.el7.centos is needed by httpd-2.4.6-97.el7.centos.x86_64
+```
+
+To remove an installed package
+```
+[root@server1 packages]# rpm -e nmap
+```
+
+To see which package a file belongs to.  Once you have a package name you can then
+get more info about it using `rpm -qi`
+```
+[root@server1 packages]# rpm -qf /etc/hosts
+setup-2.8.71-11.el7.noarch
+
+[root@server1 packages]# rpm -qi setup
+Name        : setup
+Version     : 2.8.71
+Release     : 11.el7
+Architecture: noarch
+Install Date: Sat 27 Feb 2021 15:41:49 GMT
+Group       : System Environment/Base
+Size        : 697141
+License     : Public Domain
+Signature   : RSA/SHA256, Fri 03 Apr 2020 22:21:58 IST, Key ID 24c6a8a7f4a80eb5
+Source RPM  : setup-2.8.71-11.el7.src.rpm
+Build Date  : Wed 01 Apr 2020 05:29:34 IST
+Build Host  : x86-02.bsys.centos.org
+Relocations : (not relocatable)
+Packager    : CentOS BuildSystem <http://bugs.centos.org>
+Vendor      : CentOS
+URL         : https://pagure.io/setup/
+Summary     : A set of system configuration and setup files
+Description :
+The setup package contains a set of important system configuration and
+setup files, such as passwd, group, and profile.
+```
+
+To verify a package run the following.  If nothing is output it means the package
+is correct and nothing has changed.  If any files have been changed then the command
+will show you what files
+```
+[root@server1 packages]# rpm -V setup
+```
+
+### Using YUM
+
+Yum is a package manager that removes a lot of the potential issues with making sure
+you are installing all the dependencies required for a package to be installed
+successfully.
+
+To install a package.  You just need to specify the package name, you don't need
+a full path. Yum will look up it's local cache and will be able to look up the
+package based just on the name. The second command is to agree to install upfront,
+without it prompting you to enter "yes"
+```
+[root@server1 packages]# yum install bash-completion
+[root@server1 packages]# yum install -y bash-completion
+```
+
+**Useful Aside!** : The bash-completion package is very useful. You can auto-complete on
+commands by hitting tab, and if you hit tab-tab after a command it will show you
+the available sub-commands and options available.
+
+To use yum to get package info
+```
+[root@server1 ~]# yum info bash-completion.noarch
+Loaded plugins: fastestmirror
+Loading mirror speeds from cached hostfile
+ * base: mirror.strencom.net
+ * epel: fedora.cu.be
+ * extras: mirror.strencom.net
+ * updates: mirror.strencom.net
+Installed Packages
+Name        : bash-completion
+Arch        : noarch
+Epoch       : 1
+Version     : 2.1
+Release     : 8.el7
+Size        : 263 k
+Repo        : installed
+From repo   : base
+Summary     : Programmable completion for Bash
+URL         : http://bash-completion.alioth.debian.org/
+License     : GPLv2+
+Description : bash-completion is a collection of shell functions that take advantage
+            : of the programmable completion feature of bash.
+```
+
+To get the yum version
+```
+[root@server1 ~]# yum version
+Loaded plugins: fastestmirror
+Installed: 7/x86_64                                                                                                                                                                       1148:1bd7dda4d476fea3c26ed509e39b81c07e9f38d1
+Group-Installed: yum                                                                                                                                                                        14:7894245620e388e6cc2b147e584eb2b9511d7ca8
+version
+```
+
+To remove a package
+```
+[root@server1 ~]# yum remove nmap
+[root@server1 ~]# yum remove -y nmap
+```
+
+To set the dependency list for a package
+```
+[root@server1 ~]# yum deplist nmap
+Loaded plugins: fastestmirror
+Loading mirror speeds from cached hostfile
+ * base: mirror.strencom.net
+ * epel: fedora.cu.be
+ * extras: mirror.strencom.net
+ * updates: mirror.strencom.net
+package: nmap.x86_64 2:6.40-19.el7
+  dependency: /usr/bin/python
+   provider: python.x86_64 2.7.5-90.el7
+  dependency: libc.so.6(GLIBC_2.15)(64bit)
+   provider: glibc.x86_64 2.17-323.el7_9
+  dependency: libcrypto.so.10()(64bit)
+   provider: openssl-libs.x86_64 1:1.0.2k-21.el7_9
+  dependency: libcrypto.so.10(libcrypto.so.10)(64bit)
+   provider: openssl-libs.x86_64 1:1.0.2k-21.el7_9
+  dependency: libdl.so.2()(64bit)
+   provider: glibc.x86_64 2.17-323.el7_9
+  dependency: libdl.so.2(GLIBC_2.2.5)(64bit)
+...
+```
+
+To get a list of installed packages.  This will show the yum repo they were installed
+from
+```
+[root@server1 ~]# yum list installed
+Loaded plugins: fastestmirror
+Loading mirror speeds from cached hostfile
+ * base: mirror.strencom.net
+ * epel: fedora.cu.be
+ * extras: mirror.strencom.net
+ * updates: mirror.strencom.net
+Installed Packages
+GConf2.x86_64                                                                                                       3.2.6-8.el7                                                                                               @base
+ImageMagick.x86_64                                                                                                  6.9.10.68-5.el7_9                                                                                         @updates
+ModemManager-glib.x86_64                                                                                            1.6.10-4.el7                                                                                              @base
+NetworkManager.x86_64                                                                                               1:1.18.8-2.el7_9                                                                                          @updates
+NetworkManager-glib.x86_64                                                                                          1:1.18.8-2.el7_9                                                                                          @updates
+...
+```
+
+To get a list of all available packages
+```
+[root@server1 ~]# yum list installed
 ```
