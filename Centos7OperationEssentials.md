@@ -3156,3 +3156,658 @@ To get a list of all available packages
 ```
 [root@server1 ~]# yum list installed
 ```
+
+### Configuring YUM Repositories
+
+The yum repo files are located locally at `/etc/yum.repos.d`
+
+The anatomy of a yum repo file
+```
+[root@server1 yum.repos.d]# less CentOS-Base.repo
+
+# CentOS-Base.repo
+#
+# The mirror system uses the connecting IP address of the client and the
+# update status of each mirror to pick mirrors that are updated to and
+# geographically close to the client.  You should use this for CentOS updates
+# unless you are manually picking other mirrors.
+#
+# If the mirrorlist= does not work for you, as a fall back you can try the
+# remarked out baseurl= line instead.
+#
+#
+
+[base]
+name=CentOS-$releasever - Base
+mirrorlist=http://mirrorlist.centos.org/?release=$releasever&arch=$basearch&repo=os&infra=$infra
+#baseurl=http://mirror.centos.org/centos/$releasever/os/$basearch/
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+#released updates
+[updates]
+name=CentOS-$releasever - Updates
+mirrorlist=http://mirrorlist.centos.org/?release=$releasever&arch=$basearch&repo=updates&infra=$infra
+#baseurl=http://mirror.centos.org/centos/$releasever/updates/$basearch/
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+#additional packages that may be useful
+[extras]
+name=CentOS-$releasever - Extras
+mirrorlist=http://mirrorlist.centos.org/?release=$releasever&arch=$basearch&repo=extras&infra=$infra
+#baseurl=http://mirror.centos.org/centos/$releasever/extras/$basearch/
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+#additional packages that extend functionality of existing packages
+[centosplus]
+name=CentOS-$releasever - Plus
+mirrorlist=http://mirrorlist.centos.org/?release=$releasever&arch=$basearch&repo=centosplus&infra=$infra
+#baseurl=http://mirror.centos.org/centos/$releasever/centosplus/$basearch/
+gpgcheck=1
+enabled=0
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+```
+As you can see from the above there are 4 repos contained in this repo file, but
+one of them, `centosplus` is disabled (`enabled=0`)
+
+To list the repositories
+```
+[root@server1 yum.repos.d]# yum repolist
+Loaded plugins: fastestmirror
+Loading mirror speeds from cached hostfile
+ * base: mirror.strencom.net
+ * epel: fedora.cu.be
+ * extras: mirror.strencom.net
+ * updates: mirror.strencom.net
+repo id                                                                                           repo name                                                                                                                      status
+!base/7/x86_64                                                                                    CentOS-7 - Base                                                                                                                10,072
+!epel/x86_64                                                                                      Extra Packages for Enterprise Linux 7 - x86_64                                                                                 13,552
+!extras/7/x86_64                                                                                  CentOS-7 - Extras                                                                                                                 453
+!updates/7/x86_64                                                                                 CentOS-7 - Updates                                                                                                              1,729
+repolist: 25,806
+```
+
+To see ALL yum repos, enabled and disabled
+```
+[root@server1 yum.repos.d]# yum repolist all
+Loaded plugins: fastestmirror
+Loading mirror speeds from cached hostfile
+ * base: mirror.strencom.net
+ * epel: fedora.cu.be
+ * extras: mirror.strencom.net
+ * updates: mirror.strencom.net
+repo id                                                                                      repo name                                                                                                                  status
+C7.0.1406-base/x86_64                                                                        CentOS-7.0.1406 - Base                                                                                                     disabled
+C7.0.1406-centosplus/x86_64                                                                  CentOS-7.0.1406 - CentOSPlus                                                                                               disabled
+C7.0.1406-extras/x86_64                                                                      CentOS-7.0.1406 - Extras                                                                                                   disabled
+C7.0.1406-fasttrack/x86_64                                                                   CentOS-7.0.1406 - Fasttrack                                                                                                disabled
+C7.0.1406-updates/x86_64                                                                     CentOS-7.0.1406 - Updates                                                                                                  disabled
+C7.1.1503-base/x86_64                                                                        CentOS-7.1.1503 - Base                                                                                                     disabled
+C7.1.1503-centosplus/x86_64                                                                  CentOS-7.1.1503 - CentOSPlus                                                                                               disabled
+C7.1.1503-extras/x86_64                                                                      CentOS-7.1.1503 - Extras                                                                                                   disabled
+C7.1.1503-fasttrack/x86_64                                                                   CentOS-7.1.1503 - Fasttrack                                                                                                disabled
+C7.1.1503-updates/x86_64                                                                     CentOS-7.1.1503 - Updates                                                                                                  disabled
+C7.2.1511-base/x86_64                                                                        CentOS-7.2.1511 - Base                                                                                                     disabled
+C7.2.1511-centosplus/x86_64                                                                  CentOS-7.2.1511 - CentOSPlus                                                                                               disabled
+C7.2.1511-extras/x86_64                                                                      CentOS-7.2.1511 - Extras                                                                                                   disabled
+C7.2.1511-fasttrack/x86_64                                                                   CentOS-7.2.1511 - Fasttrack                                                                                                disabled
+C7.2.1511-updates/x86_64                                                                     CentOS-7.2.1511 - Updates                                                                                                  disabled
+C7.3.1611-base/x86_64                                                                        CentOS-7.3.1611 - Base                                                                                                     disabled
+...
+```
+
+To make your own repo file in the `/etc/yum.repos.d` directory
+```
+[root@server1 yum.repos.d]# vi local.repo
+
+[CentOS7]
+name=CentOS 7.2 Local Network
+baseurk=http://192.168.56.220/centos7/
+enabled=1
+gpgcheck=0
+```
+
+After you have created your repo file you can see it when you run `yum repolist`
+```
+[root@server1 yum.repos.d]# yum repolist
+Loaded plugins: fastestmirror
+Loading mirror speeds from cached hostfile
+Loading mirror speeds from cached hostfile
+Loading mirror speeds from cached hostfile
+epel/x86_64/metalink                                                                                                                                                                                            |  12 kB  00:00:00
+epel/x86_64                                                                                                                                                                                                     | 4.7 kB  00:00:00
+epel/x86_64/updateinfo                                                                                                                                                                                          | 1.0 MB  00:00:00
+epel/x86_64/primary_db                                                                                                                                                                                          | 6.9 MB  00:00:01
+repo id                                                                                        repo name                                                                                                                         status
+CentOS7                                                                                        CentOS 7.2 Local Network                                                                                                          0
+!epel/x86_64                                                                                   Extra Packages for Enterprise Linux 7 - x86_64                                                                                    0
+repolist: 0
+```
+
+### Working with the YUM Cache
+
+The YUM cache contains metadata of all yum packages in a local cache.  When you install
+a package using `yum install`, it will get package information from the local yum cache
+rather than go to an online resource. So it should be quicker.
+
+The yum cache is located in `/var/yum/cache`
+```
+[root@server1 yum.repos.d]# tree /var/cache/yum
+/var/cache/yum
+└── x86_64
+    └── 7
+        ├── base
+        │   ├── 6d0c3a488c282fe537794b5946b01e28c7f44db79097bb06826e1c0c88bad5ef-primary.sqlite.bz2
+        │   ├── a4e2b46586aa556c3b6f814dad5b16db5a669984d66b68e873586cd7c7253301-c7-x86_64-comps.xml.gz
+        │   ├── cachecookie
+        │   ├── d6d94c7d406fe7ad4902a97104b39a0d8299451832a97f31d71653ba982c955b-filelists.sqlite.bz2
+        │   ├── gen
+        │   │   ├── comps.xml
+        │   │   ├── filelists_db.sqlite
+        │   │   └── primary_db.sqlite
+        │   ├── mirrorlist.txt
+        │   ├── packages
+        │   └── repomd.xml
+        ├── base-debuginfo
+        │   ├── gen
+        │   └── packages
+        ├── base-source
+        │   ├── gen
+        │   └── packages
+        ├── C7.0.1406-base
+        │   ├── gen
+        │   └── packages
+        ├── C7.0.1406-centosplus
+        │   ├── gen
+...
+```
+
+To build metadate from our repositories and make sure we have the latest repo data
+there
+```
+[root@server1 yum.repos.d]# yum makecache
+Loaded plugins: fastestmirror
+Loading mirror speeds from cached hostfile
+epel/x86_64/metalink                                                                                                                                                                                            |  12 kB  00:00:00
+ * base: mirror.strencom.net
+ * epel: mirror.seas.harvard.edu
+ * extras: mirror.strencom.net
+ * updates: mirror.strencom.net
+base                                                                                                                                                                                                            | 3.6 kB  00:00:00
+extras                                                                                                                                                                                                          | 2.9 kB  00:00:00
+updates                                                                                                                                                                                                         | 2.9 kB  00:00:00
+(1/8): epel/x86_64/prestodelta                                                                                                                                                                                  |  616 B  00:00:00
+(2/8): extras/7/x86_64/other_db                                                                                                                                                                                 | 134 kB  00:00:01
+(3/8): extras/7/x86_64/filelists_db                                                                                                                                                                             | 226 kB  00:00:02
+(4/8): epel/x86_64/other_db                                                                                                                                                                                     | 3.3 MB  00:00:02
+(5/8): updates/7/x86_64/other_db                                                                                                                                                                                | 476 kB  00:00:02
+(6/8): base/7/x86_64/other_db                                                                                                                                                                                   | 2.6 MB  00:00:05
+(7/8): updates/7/x86_64/filelists_db                                                                                                                                                                            | 3.4 MB  00:00:07
+(8/8): epel/x86_64/filelists_db                                                                                                                                                                                 |  12 MB  00:00:11
+Metadata Cache Created
+```
+
+To remove any packages you have downloaded (pending installation) and the cache data
+```
+[root@server1 yum.repos.d]# yum clean all
+Loaded plugins: fastestmirror
+Cleaning repos: base epel extras updates
+Cleaning up list of fastest mirrors
+```
+You can rebuild your cache again using `yum makecache`
+
+PRO Tip : If you want to make virtual machine images from your system, it is a good
+idea to clear out your yum cache to save space, and then when you have spun up your
+VM you can rebuild your cache then.
+
+### Controlling Kernel Updates
+
+It is simple to update your kernal using `yum`, the command is simple `yum update kernel`.
+However one thing to remember when updating your kernel is that the existing kernel is
+not touched.  yum will install a new kernal alongside the existing ones.  When you boot
+it will boot to the new kernel from that point. That might break your virtualization
+environment.
+
+However if you want to exclude any kernel updates when running `yum update` you can
+add an entry to the `yum.conf` file
+```
+[root@server1 yum.repos.d]# vi /etc/yum.conf
+
+// Add in the following entry
+exclude=kernel*
+```
+You can also do the above by running `yum --exclude=kernel* update`
+
+### Working with Source RPMS
+
+As an alternative to installing pre-built and pre-compiled packages, you can also download
+the source for packages, if you need to change them for some reason. The steps for
+installing the source repositories and building the source packages are as follows;
+
+1) If you run a yum repolist all you will see that the source repositories for Centos7
+are disabled.
+```
+[root@server1 yum.repos.d]# yum repolist all
+centosplus/7/x86_64                                                                          CentOS-7 - Plus                                                                                                            disabled
+centosplus-source/7                                                                          CentOS-7 - Plus Sources                                                                                                    disabled
+cr/7/x86_64                                                                                  CentOS-7 - cr                                                                                                              disabled
+epel/x86_64                                                                                  Extra Packages for Enterprise Linux 7 - x86_64                                                                             enabled: 13,552
+```
+These repos need to be enabled before we can install the src packages.
+
+2) If we grep the CentOS-Sources.repo file and check the enabled field, we can
+see that file does contain repo information but all of them are disabled.
+```
+[root@server1 yum.repos.d]# grep ^enabled CentOS-Sources.repo
+enabled=0
+enabled=0
+enabled=0
+enabled=0
+```
+
+3) To enable the repos we need to do a search and replace on the CentOS-Sources.repo
+file
+```
+[root@server1 yum.repos.d]# sed -i 's/^enabled=0/enabled=1/' CentOS-Sources.repo
+[root@server1 yum.repos.d]# grep ^enabled CentOS-Sources.repo
+enabled=1
+enabled=1
+enabled=1
+enabled=1
+```
+
+4) Then when we do a yum repolist we can see the source repos in our list of enabled repos.
+```
+[root@server1 yum.repos.d]# yum repolist
+Loaded plugins: fastestmirror
+Loading mirror speeds from cached hostfile
+ * base: mirror.facebook.net
+ * epel: mirror.dst.ca
+ * extras: centos.mirror.constant.com
+ * updates: mirrors.seas.harvard.edu
+base-source                                                                                                                                                                                                     | 2.9 kB  00:00:00
+centosplus-source                                                                                                                                                                                               | 2.9 kB  00:00:00
+extras-source                                                                                                                                                                                                   | 2.9 kB  00:00:00
+updates-source                                                                                                                                                                                                  | 2.9 kB  00:00:00
+(1/4): updates-source/7/primary_db                                                                                                                                                                              | 106 kB  00:00:00
+(2/4): centosplus-source/7/primary_db                                                                                                                                                                           |  11 kB  00:00:02
+(3/4): base-source/7/primary_db                                                                                                                                                                                 | 974 kB  00:00:03
+(4/4): extras-source/7/primary_db                                                                                                                                                                               |  27 kB  00:00:04
+repo id                                                                                            repo name                                                                                                                     status
+base/7/x86_64                                                                                      CentOS-7 - Base                                                                                                               10,072
+base-source/7                                                                                      CentOS-7 - Base Sources                                                                                                            0
+centosplus-source/7                                                                                CentOS-7 - Plus Sources                                                                                                            0
+epel/x86_64                                                                                        Extra Packages for Enterprise Linux 7 - x86_64                                                                                13,552
+extras/7/x86_64                                                                                    CentOS-7 - Extras                                                                                                                453
+extras-source/7                                                                                    CentOS-7 - Extras Sources                                                                                                          0
+updates/7/x86_64                                                                                   CentOS-7 - Updates                                                                                                             1,729
+updates-source/7                                                                                   CentOS-7 - Updates Sources                                                                                                         0
+repolist: 25,806
+```
+
+5) For the next Step we need to ensure that the yum-utils package is installed
+```
+[root@server1 yum.repos.d]# yum install -y yum-utils
+Loaded plugins: fastestmirror
+Loading mirror speeds from cached hostfile
+ * base: mirror.facebook.net
+ * epel: mirror.dst.ca
+ * extras: centos.mirror.constant.com
+ * updates: mirrors.seas.harvard.edu
+Package yum-utils-1.1.31-54.el7_8.noarch already installed and latest version
+```
+
+6) Now we can download the source for the zsh shell
+```
+[root@server1 yum.repos.d]# yumdownloader --source zsh
+Loaded plugins: fastestmirror
+Enabling epel-source repository
+Loading mirror speeds from cached hostfile
+epel-source/x86_64/metalink                                                                                                                                                                                     |  23 kB  00:00:00
+ * base: mirror.facebook.net
+ * epel: mirror.dst.ca
+ * epel-source: mirrors.ukfast.co.uk
+ * extras: centos.mirror.constant.com
+ * updates: mirrors.seas.harvard.edu
+epel-source                                                                                                                                                                                                     | 3.5 kB  00:00:00
+(1/2): epel-source/x86_64/updateinfo                                                                                                                                                                            | 1.0 MB  00:00:00
+(2/2): epel-source/x86_64/primary_db                                                                                                                                                                            | 2.4 MB  00:00:01
+zsh-5.0.2-34.el7_8.2.src.rpm
+
+[root@server1 yum.repos.d]# ls
+CentOS-Base.repo  CentOS-CR.repo  CentOS-Debuginfo.repo  CentOS-fasttrack.repo  CentOS-Media.repo  CentOS-Sources.repo  CentOS-Vault.repo  CentOS-x86_64-kernel.repo  epel.repo  epel-testing.repo  zsh-5.0.2-34.el7_8.2.src.rpm
+```
+
+7) To help us make the source files we need to have the `ncurses-devel` package
+```
+[root@server1 yum.repos.d]# yum install ncurses-devel
+```
+
+8) We can install the sources package using the `rpm -i` command.  This will create
+a directory call `rpmbuild/SOURCES` in our home directoy
+```
+[root@server1 yum.repos.d]# rpm -i zsh-5.0.2-34.el7_8.2.src.rpm
+arning: user mockbuild does not exist - using root
+warning: group mockbuild does not exist - using root
+warning: user mockbuild does not exist - using root
+warning: group mockbuild does not exist - using root
+...
+
+[root@server1 yum.repos.d]# cd ~/rpmbuild/SOURCES/
+```
+
+9) One of the files in the SOURCES folder is the `zsh-5.0.2.tar.bz2` file. We need
+to untar it to work with it
+```
+-rw-rw-r--. 1 root root 3025767 Mar 31  2020 zsh-5.0.2.tar.bz2
+
+[root@server1 SOURCES]# tar -xjf zsh-5.0.2.tar.bz2
+```
+
+10) A directory called `zsh-5.0.2/` will be extracted from the tar file, we need to
+cd to that directoy and run the `configure` script there in order to create a `make file`
+```
+[root@server1 SOURCES]# cd zsh-5.0.2/
+[root@server1 zsh-5.0.2]# ls
+aclocal.m4  ChangeLog   Config        config.h.in  configure     Doc  FEATURES   INSTALL     LICENCE   Makefile.in  Misc           NEWS    Scripts  stamp-h.in    Test
+aczsh.m4    Completion  config.guess  config.sub   configure.ac  Etc  Functions  install-sh  MACHINES  META-FAQ     mkinstalldirs  README  Src      StartupFiles  Util
+[root@server1 zsh-5.0.2]# ./configure
+configuring for zsh 5.0.2
+checking build system type... x86_64-unknown-linux-gnu
+checking host system type... x86_64-unknown-linux-gnu
+checking for gcc... gcc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables...
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether we are using the GNU C compiler... yes
+...
+```
+
+11) This uses the `ncurses-devel` package to generate the make file.  We can now run
+the `make` script and then `make install` and that will compile the sources for us
+and put the `zsh` command on the path
+```
+[root@server1 zsh-5.0.2]# make
+...
+...
+[root@server1 zsh-5.0.2]# make install
+...
+...
+
+[root@server1]~/rpmbuild/SOURCES/zsh-5.0.2# which zsh
+/usr/local/bin/zsh
+```
+
+### Enabling Services
+
+If you are installing services such as a web server or samba service, you also
+need to enable the service so that it starts up automatically on reboot.
+
+For this demo we are going to use the httpd service.  In order to see if the correct package is
+installed (which it is)
+```
+[root@server1 ~]# yum install httpd
+Loaded plugins: fastestmirror
+Loading mirror speeds from cached hostfile
+ * base: mirror.facebook.net
+ * epel: mirror.dst.ca
+ * extras: centos.mirror.constant.com
+ * updates: mirrors.seas.harvard.edu
+Package httpd-2.4.6-97.el7.centos.x86_64 already installed and latest version
+Nothing to do
+```
+
+Then we will use `nmap` to see if the http ports are listening (they are not)
+```
+[root@server1 ~]# nmap localhost
+
+Starting Nmap 6.40 ( http://nmap.org ) at 2021-03-15 20:35 GMT
+Nmap scan report for localhost (127.0.0.1)
+Host is up (0.000015s latency).
+Other addresses for localhost (not scanned): 127.0.0.1
+Not shown: 998 closed ports
+PORT   STATE SERVICE
+22/tcp open  ssh
+25/tcp open  smtp
+
+Nmap done: 1 IP address (1 host up) scanned in 1.60 seconds
+[root@server1 ~]# nmap localhost
+
+Starting Nmap 6.40 ( http://nmap.org ) at 2021-03-15 20:37 GMT
+Nmap scan report for localhost (127.0.0.1)
+Host is up (0.000012s latency).
+Other addresses for localhost (not scanned): 127.0.0.1
+Not shown: 998 closed ports
+PORT   STATE SERVICE
+22/tcp open  ssh
+25/tcp open  smtp
+
+Nmap done: 1 IP address (1 host up) scanned in 1.60 seconds
+```
+
+Let's check the status of the httpd service to see if it's up and running and if
+the service is enabled (it's not)
+```
+[root@server1 ~]# systemctl status httpd
+● httpd.service - The Apache HTTP Server
+   Loaded: loaded (/usr/lib/systemd/system/httpd.service; disabled; vendor preset: disabled)
+   Active: inactive (dead)
+     Docs: man:httpd(8)
+           man:apachectl(8)
+```
+
+To enable the `httpd` service.  When we check the status we see it's still not running
+but the service status is now `enabled`
+```
+[root@server1 ~]# systemctl enable httpd
+Created symlink from /etc/systemd/system/multi-user.target.wants/httpd.service to /usr/lib/systemd/system/httpd.service.
+
+[root@server1 ~]# systemctl status httpd
+● httpd.service - The Apache HTTP Server
+   Loaded: loaded (/usr/lib/systemd/system/httpd.service; enabled; vendor preset: disabled)
+   Active: inactive (dead)
+     Docs: man:httpd(8)
+           man:apachectl(8)
+```
+
+To start the `httpd` service
+```
+[root@server1 ~]# systemctl start httpd
+[root@server1 ~]# systemctl status httpd
+● httpd.service - The Apache HTTP Server
+   Loaded: loaded (/usr/lib/systemd/system/httpd.service; enabled; vendor preset: disabled)
+   Active: active (running) since Mon 2021-03-15 20:42:04 GMT; 4s ago
+     Docs: man:httpd(8)
+           man:apachectl(8)
+ Main PID: 14365 (httpd)
+   Status: "Processing requests..."
+   CGroup: /system.slice/httpd.service
+           ├─14365 /usr/sbin/httpd -DFOREGROUND
+           ├─14366 /usr/sbin/httpd -DFOREGROUND
+           ├─14367 /usr/sbin/httpd -DFOREGROUND
+           ├─14368 /usr/sbin/httpd -DFOREGROUND
+           ├─14369 /usr/sbin/httpd -DFOREGROUND
+           └─14370 /usr/sbin/httpd -DFOREGROUND
+
+Mar 15 20:41:31 server1.example.com systemd[1]: Starting The Apache HTTP Server...
+Mar 15 20:42:04 server1.example.com systemd[1]: Started The Apache HTTP Server.
+```
+
+So now when we run `nmap` on localhost again we can see that we are listening on the
+http port now
+```
+[root@server1 ~]# nmap localhost
+
+Starting Nmap 6.40 ( http://nmap.org ) at 2021-03-15 20:43 GMT
+Nmap scan report for localhost (127.0.0.1)
+Host is up (0.0000090s latency).
+Other addresses for localhost (not scanned): 127.0.0.1
+Not shown: 997 closed ports
+PORT   STATE SERVICE
+22/tcp open  ssh
+25/tcp open  smtp
+80/tcp open  http
+
+Nmap done: 1 IP address (1 host up) scanned in 1.60 seconds
+```
+
+If you want to employ a shortcut and enable and start a service at the same time
+you can use the following command instead.  This enables the service and starts it
+immediately.
+```
+[root@server1 ~]# systemctl enable httpd --now
+```
+
+You can stop a service using `systemctl stop httpd`.  You can disable a service using
+`systemctl disable httpd`.  `systemctl disable httpd --now` will do both in one command
+
+## Configuration Management Tools
+
+### Installing puppet
+
+`Puppet` is a ruby based configuration management tool like `chef`.  To install it run the following.
+It comes from the `epel` yum repository, so you need to have the `epel-release` package installed first
+We can do a version check after installation to ensure it is installed correctly
+```
+[root@server1 yum.repos.d]# yum install -y puppet
+...
+...
+[root@server1 yum.repos.d]# puppet --version
+3.6.2
+```
+
+### Checking the Hostname and Domain
+
+Because CentOS7 is systemd based, we can use `hostnamectl`.  We can see from the output
+that we have a FQDN as well as just a hostname.
+```
+[root@server1 yum.repos.d]# hostnamectl
+   Static hostname: server1.example.com
+         Icon name: computer-vm
+           Chassis: vm
+        Machine ID: 66213c250ded4576a9120b120ad72e6c
+           Boot ID: 56d4be0a3ecb47c7929957c5a75488d2
+    Virtualization: kvm
+  Operating System: CentOS Linux 7 (Core)
+       CPE OS Name: cpe:/o:centos:centos:7
+            Kernel: Linux 3.10.0-1160.15.2.el7.x86_64
+      Architecture: x86-64
+```
+
+One of the tools that is installed with `Puppet` is `facter` which when run will
+output a lot system information such as hardware details, network settings, kernel/OS
+information etc. Facter was create for Puppet to gather system information, but can
+also be used as a standalone command
+```
+[root@server1 yum.repos.d]# facter
+architecture => x86_64
+augeasversion => 1.4.0
+bios_release_date => 12/01/2006
+bios_vendor => innotek GmbH
+bios_version => VirtualBox
+blockdevice_sda_model => VBOX HARDDISK
+blockdevice_sda_size => 8589934592
+blockdevice_sda_vendor => ATA
+blockdevice_sr0_model => CD-ROM
+blockdevice_sr0_size => 1073741312
+blockdevice_sr0_vendor => VBOX
+blockdevices => sda,sr0
+boardmanufacturer => Oracle Corporation
+boardproductname => VirtualBox
+boardserialnumber => 0
+dhcp_servers => {"system"=>"10.0.2.3", "enp0s3"=>"10.0.2.3", "enp0s8"=>"192.168.99.10"}
+domain => example.com
+facterversion => 2.4.1
+filesystems => xfs
+fqdn => server1.example.com
+gid => root
+hardwareisa => x86_64
+hardwaremodel => x86_64
+hostname => server1
+...
+...
+...
+```
+
+You can `grep` `facter` to get all sorts of info
+```
+[root@server1 yum.repos.d]# facter | grep hostname
+hostname => server1
+[root@server1 yum.repos.d]# facter | grep domain
+domain => example.com
+[root@server1 yum.repos.d]# facter | grep kernel
+kernel => Linux
+kernelmajversion => 3.10
+kernelrelease => 3.10.0-1160.15.2.el7.x86_64
+kernelversion => 3.10.0
+```
+
+### Puppet Manifests
+`Puppet` has "manifests", these are like a shipping list of what needs to be created
+on a node or a group of nodes. Manifests are `.pp` files.  Normally we would be
+configuring manifest files on a central puppet server.  But for the purposes of
+this demo we will create them locally and run them using the puppet client.
+Puppet and it's config files are located in `/etc/puppet`
+```
+[root@server1 yum.repos.d]# cd /etc/puppet
+[root@server1 puppet]# mkdir manifests
+[root@server1 puppet]# ls -al
+total 24
+drwxr-xr-x.   4 root root   74 Mar 15 21:05 .
+drwxr-xr-x. 121 root root 8192 Mar 15 20:51 ..
+-rw-r--r--.   1 root root 4178 Jun  9  2014 auth.conf
+drwxr-xr-x.   2 root root    6 Mar 15 21:05 manifests
+drwxr-xr-x.   2 root root    6 Aug 19  2014 modules
+-rw-r--r--.   1 root root  853 Jun  9  2014 puppet.conf
+[root@server1 puppet]# cd manifests
+```
+
+In the manifests directory we create a file called site.pp and in that file we enter
+the following.  This is the node definition for a named node and we have a file rule
+to ensure a file is in place with the attributes we have specified in the manifest
+```
+[root@server1 manifests]# vi site.pp
+node "server1.example.com" {
+    file { '/etc/yum.repos.d/local.repo':
+            ensure => "file",
+            owner => "root",
+            group => "wheel",
+            mode => "644",
+            content => "[localc7]
+name=CentOS 7 Local
+baseurl=http://192.168.56.220/centos7
+gpgcheck=0
+enabled=1
+"}
+}
+```
+
+To use the puppet client to apply the manifest
+```
+[root@server1 manifests]# puppet apply site.pp
+Notice: Compiled catalog for server1.example.com in environment production in 0.08 seconds
+Notice: /Stage[main]/Main/Node[server1.example.com]/File[/etc/yum.repos.d/local.repo]/ensure: defined content as '{md5}c685fe7171168871d26edc5d4af08f87'
+Notice: Finished catalog run in 0.04 seconds
+```
+
+If we go the /etc/yum.repos.d/ dir, we can see that our new file has been created
+with the correct contents and attributes
+```
+[root@server1 manifests]# ls -l /etc/yum.repos.d/local.repo
+-rw-r--r--. 1 root wheel 89 Mar 15 21:16 /etc/yum.repos.d/local.repo
+[root@server1 manifests]# cat !$
+cat /etc/yum.repos.d/local.repo
+[localc7]
+name=CentOS 7 Local
+baseurl=http://192.168.56.220/centos7
+gpgcheck=0
+enabled=1
+```
+
+If you were to change anything about the file, such as it's contents or ownership,
+if you then use puppet to reapply the manifest, it will ensure the file conforms with the
+policy as stated in the manifest.
