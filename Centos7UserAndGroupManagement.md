@@ -358,8 +358,8 @@ Number of days of warning before password expires	: 7
 ```
 
 Password data is normally kept in the shadow file for security reasons.  If you
-want your passwords to be stored in the /etc/passwd file, you can run.  However
-doing it this way you lose the password aging info from the shadow file.
+want your passwords to be stored in the /etc/passwd file, you can run `pwunconv`.
+However doing it this way you lose the password aging info from the shadow file.
 ```
 centos@server1 ~]$ sudo pwunconv
 [centos@server1 ~]$ grep user1 /etc/passwd
@@ -428,4 +428,4 @@ passwd: Success
 user1:$6$4IN6vMEf$Lod7W.r2XLZecVudYmKw.FCoD.B4odS9NcmM/El8CScfkaXmfrLKCwGR01W/0T6iE2xNrr4Wd1RNuT36op2x5/:18707:0:40:7:::
 ```
 
-### User account defaults 
+### User account defaults
