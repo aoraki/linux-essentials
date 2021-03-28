@@ -429,3 +429,1172 @@ user1:$6$4IN6vMEf$Lod7W.r2XLZecVudYmKw.FCoD.B4odS9NcmM/El8CScfkaXmfrLKCwGR01W/0T
 ```
 
 ### User account defaults
+
+We can use default info to be applied when we create new users.  The default information
+is pulled from a couple of locations
+
+The first file is the `login.defs` file.  This contains things like password aging
+default values, id ranges for users and groups, home directory creation default value,
+the `umask` value, the password encryption algorithm, etc.
+```
+[centos@server1 ~]$ cat /etc/login.defs
+#
+# Please note that the parameters in this configuration file control the
+# behavior of the tools from the shadow-utils component. None of these
+# tools uses the PAM mechanism, and the utilities that use PAM (such as the
+# passwd command) should therefore be configured elsewhere. Refer to
+# /etc/pam.d/system-auth for more information.
+#
+
+# *REQUIRED*
+#   Directory where mailboxes reside, _or_ name of file, relative to the
+#   home directory.  If you _do_ define both, MAIL_DIR takes precedence.
+#   QMAIL_DIR is for Qmail
+#
+#QMAIL_DIR	Maildir
+MAIL_DIR	/var/spool/mail
+#MAIL_FILE	.mail
+
+# Password aging controls:
+#
+#	PASS_MAX_DAYS	Maximum number of days a password may be used.
+#	PASS_MIN_DAYS	Minimum number of days allowed between password changes.
+#	PASS_MIN_LEN	Minimum acceptable password length.
+#	PASS_WARN_AGE	Number of days warning given before a password expires.
+#
+PASS_MAX_DAYS	99999
+PASS_MIN_DAYS	0
+PASS_MIN_LEN	5
+PASS_WARN_AGE	7
+
+#
+# Min/max values for automatic uid selection in useradd
+#
+UID_MIN                  1000
+UID_MAX                 60000
+# System accounts
+SYS_UID_MIN               201
+SYS_UID_MAX               999
+
+#
+# Min/max values for automatic gid selection in groupadd
+#
+GID_MIN                  1000
+GID_MAX                 60000
+# System accounts
+SYS_GID_MIN               201
+SYS_GID_MAX               999
+
+#
+# If defined, this command is run when removing a user.
+# It should remove any at/cron/print jobs etc. owned by
+# the user to be removed (passed as the first argument).
+#
+#USERDEL_CMD	/usr/sbin/userdel_local
+
+#
+# If useradd should create home directories for users by default
+# On RH systems, we do. This option is overridden with the -m flag on
+# useradd command line.
+#
+CREATE_HOME	yes
+
+# The permission mask is initialized to this value. If not specified,
+# the permission mask will be initialized to 022.
+UMASK           077
+
+# This enables userdel to remove user groups if no members exist.
+#
+USERGROUPS_ENAB yes
+
+# Use SHA512 to encrypt password.
+ENCRYPT_METHOD SHA512
+```
+
+To see additional default info given to users on creation
+```
+[centos@server1 ~]$ useradd -D
+GROUP=100
+HOME=/home
+INACTIVE=-1
+EXPIRE=
+SHELL=/bin/bash
+SKEL=/etc/skel
+CREATE_MAIL_SPOOL=yes
+```
+
+To change one of the defaults we can add an extra switch to the command, in this
+example use a different default shell
+```
+[centos@server1 ~]$ sudo useradd -Ds /bin/sh
+[sudo] password for centos:
+[centos@server1 ~]$ useradd -D
+GROUP=100
+HOME=/home
+INACTIVE=-1
+EXPIRE=
+SHELL=/sbin/nologin
+SKEL=/etc/skel
+CREATE_MAIL_SPOOL=no
+```
+
+The above information is held in a file and you can edit this file directly as well
+```
+[centos@server1 ~]$ sudo cat /etc/default/useradd
+# useradd defaults file
+GROUP=100
+HOME=/home
+INACTIVE=-1
+EXPIRE=
+SHELL=/bin/sh
+SKEL=/etc/skel
+CREATE_MAIL_SPOOL=yes
+```
+
+### Modifying and deleting user accounts
+
+In the `/etc/passwd` there is a field that we can use to store the user's full name.
+The field is the comments field but it is commonly used to store the user's full name
+To modify a user;
+```
+[centos@server1 ~]$ sudo usermod -c "User One" user1
+[centos@server1 ~]$ grep user1 /etc/passwd
+user1:x:1001:1001:User One:/home/user1:/bin/bash
+```
+
+Other things we can modify for a user is the default shell.  To see a list of
+available shells use `chsh`
+```
+[centos@server1 ~]$ chsh -l
+/bin/sh
+/bin/bash
+/usr/bin/sh
+/usr/bin/bash
+/bin/zsh
+```
+
+We can use chsh to modify the shell of a user.  If it's for another user we need
+elevated privileges
+```
+[centos@server1 ~]$ chsh -s /bin/sh centos
+Changing shell for centos.
+Password:
+Shell changed.
+[centos@server1 ~]$ grep centos /etc/passwd
+centos:x:1000:1000:centos:/home/centos:/bin/sh
+```
+
+But it's better to use the `usermod` command
+```
+[centos@server1 ~]$ sudo usermod -s /bin/bash centos
+[sudo] password for centos:
+[centos@server1 ~]$ grep centos /etc/passwd
+centos:x:1000:1000:centos:/home/centos:/bin/bash
+```
+
+To delete a user. Using `-r` will do a thorough deletion, including removing the
+users home directory, mail spool files and cron jobs.
+```
+[centos@server1 ~]$ sudo userdel -r user2
+[centos@server1 ~]$ ls /home
+centos  user1  user3
+```
+
+To leave the home directory in place when deleting a user, omit `-r`.  We can also
+see that we can't resolve the user name from the uid anymore, because the user is
+deleted.
+```
+[centos@server1 ~]$ sudo userdel user3
+[centos@server1 ~]$ ls /home
+centos  user1  user3
+[centos@server1 ~]$ ls -l /home
+total 4
+drwx------. 14 centos centos 4096 Mar 12 10:47 centos
+drwx------.  3 user1  user1    92 Mar 21 16:40 user1
+drwx------.  3   1003   1003   92 Mar 21 16:52 user3
+```
+
+To remove any residual files owned by the user that was deleted, we can delete them
+using a find and the uid
+```
+[centos@server1 ~]$ sudo find /home -uid 1003 -delete
+[centos@server1 ~]$ ls /home
+centos  user1
+```
+
+## Managing local groups in CentOS7
+
+### Creating local groups
+CentOS7 has several flat files or "databases" that contain things like user info,
+group info, services etc.  The group database is located in `/etc/group`
+
+You can grep the group for a group name or a user name.  Below we are searching for a
+username, and it shows which groups the user belongs to.  The second group is the user's
+private group that gets created when the user is created.
+```
+[centos@server1 ~]$ grep centos /etc/group
+wheel:x:10:centos
+centos:x:1000:centos
+```
+
+This info is confirmed when we run `id`
+```
+[centos@server1 ~]$ id
+uid=1000(centos) gid=1000(centos) groups=1000(centos),10(wheel) context=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
+```
+
+To change your primary group id in the current session.  Then if we create a new
+file we can see that the group ownership is the wheel group
+```
+[centos@server1 ~]$ newgrp wheel
+[centos@server1 ~]$ id
+uid=1000(centos) gid=10(wheel) groups=10(wheel),1000(centos) context=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
+[centos@server1 ~]$ touch g1
+[centos@server1 ~]$ ls -l g1
+-rw-r--r--. 1 centos wheel 0 Mar 22 21:22 g1
+```
+
+If we then exit out of hte current session, the primary group id will revert to it's
+normal setting
+```
+centos@server1 ~]$ exit
+exit
+[centos@server1 ~]$ touch g2
+[centos@server1 ~]$ ls -l g2
+-rw-rw-r--. 1 centos centos 0 Mar 22 21:24 g2
+```
+
+To create a new group, use `groupadd`.  When we grep the group database we see the
+new group.  The `x` in the second field denotes that the group password is held in the
+`gshadow` file
+```
+[centos@server1 ~]$ sudo groupadd sales
+[sudo] password for centos:
+[centos@server1 ~]$ grep sales /etc/group
+sales:x:1002:
+```
+
+When we look at the gshadow file we can see an entry for our group, and it has an
+invalid password.  Elevated privileges are required to look at the `gshadow` file
+```
+[centos@server1 ~]$ sudo grep sales /etc/gshadow
+sales:!::
+```
+
+`groupadd`, `groupmod` and `groupdel` are the commands used to add, edit and delete a group
+
+### Managing group membership
+
+To add a user to another secondary group, "sales" use this. You need to include the existing secondary group if you want to keep it. If you were to just list the sales group the user would be removed from the wheel group.
+This is the method you would use if you wanted to do it from a user perspective
+```
+centos@server1 ~]$ sudo usermod -G sales,wheel centos
+[sudo] password for centos:
+Sorry, try again.
+[sudo] password for centos:
+[centos@server1 ~]$ id -Gn centos
+centos wheel sales
+[centos@server1 ~]$ id -G centos
+1000 10 1002
+```
+
+If you wanted to do it from a group perspective, ie. add a load of users to a group, then use something like this;
+```
+[centos@server1 ~]$ sudo gpasswd -a centos sales
+Adding user centos to group sales
+```
+
+To add in a list of members at the same time
+```
+[centos@server1 ~]$ sudo gpasswd -M centos,root,user1 sales
+[centos@server1 ~]$ grep sales /etc/group
+sales:x:1002:centos,root,user1
+```
+
+If you run `id` for your own user, you will not see the group settings updated, you need to start a new session before you will see that
+```
+[centos@server1 ~]$ id
+uid=1000(centos) gid=1000(centos) groups=1000(centos),10(wheel) context=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
+
+[centos@server1 ~]$ su -l centos
+Last login: Wed Mar 24 20:40:09 GMT 2021 from 192.168.99.1 on pts/0
+[centos@server1 ~]$ id
+uid=1000(centos) gid=1000(centos) groups=1000(centos),10(wheel),1002(sales) context=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
+[centos@server1 ~]$ id -Gn
+centos wheel sales
+```
+
+### Setting the SGID Permission
+
+For this we are going to use the files associated with the httpd service, `/var/www/html`
+When you install httpd initially it is owned by the root group, but the "others" section
+will have read and execute privileges
+```
+[centos@server1 ~]$ ls -ld /var/www/html
+drwxr-xr-x. 2 root root 6 Nov 16 16:19 /var/www/html
+```
+
+We should recursively change the group ownership of the `/var/www` directory to the apache group
+```
+[centos@server1 ~]$ sudo chgrp -R apache /var/www
+[centos@server1 ~]$ ls -ld /var/www
+drwxr-xr-x. 4 root apache 33 Mar 14 21:36 /var/www
+```
+
+However we should remove the "others" privileges, they are no longer needed
+```
+[centos@server1 ~]$ sudo chmod -R o= /var/www
+[centos@server1 ~]$ ls -ld /var/www
+drwxr-x---. 4 root apache 33 Mar 14 21:36 /var/www
+```
+
+In the html directory we want to set the SGID bit, which will change the group `x`
+to an `s` to denote the sticky bit has been set.  So this means that when any new file
+is created in the html directory, its going to be group owned by the directory's owner.
+```
+[centos@server1 ~]$ sudo -i
+[root@server1 ~]# cd /var/www/html
+[root@server1 /var/www/html]# ls -ld
+drwxr-x---. 2 root apache 24 Mar 24 21:11 .
+[root@server1 /var/www/html]# chmod g+s .
+[root@server1 /var/www/html]# ls -ld
+drwxr-s---. 2 root apache 24 Mar 24 21:11 .
+```
+
+We set `umask 027` to keep privileges away from the others group
+```
+[root@server1 /var/www/html]# umask 027
+```
+
+If we, as the root user, now create a new file under the `/var/www/html` dir, instead of it
+being owned by the root group, it will belong to the apache group because the sticky bit has
+been set.
+```
+[root@server1 /var/www/html]# vi test.html
+[root@server1 /var/www/html]# ls -l
+total 8
+-rw-r-----. 1 root apache  9 Mar 24 21:11 index.html
+-rw-r-----. 1 root apache 15 Mar 24 21:26 test.html
+[root@server1 /var/www/html]# id
+uid=0(root) gid=0(root) groups=0(root),1002(sales) context=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
+```
+
+### Group passwords
+
+Group passwords are stored in the `/etc/gshadow` file.
+
+You need to enter the password of a group when you want to change the primary group
+associated with a user.  But first the group must have a valid password.  You can check that by
+grepping the `/etc/group` directory
+```
+[centos@server1 ~]$ grep adm /etc/group
+adm:!:4:
+```
+
+To set the password for a group.  You need to enter your own password and then the groups password
+```
+[centos@server1 ~]$ sudo gpasswd adm
+[sudo] password for centos:
+Changing the password for group adm
+New Password:
+Re-enter new password:
+```
+
+Then if you check the `/etc/group` file again you will see that the password is now in the `gshadow`
+file
+```
+[centos@server1 ~]$ grep adm /etc/group
+adm:x:4:
+```
+
+Then to change the primary group for your user, the group now has a valid password that
+can be entered
+```
+[centos@server1 ~]$ newgrp adm
+Password:
+[centos@server1 ~]$ id -gn
+adm
+[centos@server1 ~]$ id -Gn
+adm wheel centos sales
+```
+
+**Side note:** Group passwords actually lessens security.  If you have a group's password you can change your
+primary group ownership and possibly gain more access than you currently have
+
+## Using PAM to Control User Access
+
+`PAM` are pluggable authentication modules.  When you login it accesses the PAM
+and that will give you access to a session (assuming you have the permissions to
+do so).
+
+User logins can come from SSH, through the server console or through a GUI.
+
+PAM modules can tie in to our login program and provide methods for Authentication
+(which can be password based, biometric based etc).  There could be limits applied
+such as when we're allowed to login, how many times, etc.  We can create our home
+directory during the login process and that's going to be affected by a PAM module.
+
+When you have gained access to our session PAM can continue to monitor things such
+as our access to resources, such as how many processes we're allowed to run, how much memory
+can be used, how many files we can open.  This can be continually monitored by PAM modules.
+
+Password policy is another thing that can be monitored by PAM, it can ensure that we are
+applying complexity rules etc.
+
+
+### Create home directories at Login
+
+PAM-related files and config are located in the following three locations;
+
+* `/etc/security/` - Contains config files for the PAM modules
+* `/etc/pam.d/` - Contains config files for the authentication programs and programs
+that can use PAM.
+* `/lib64/security/`
+
+To get a list of the programs that can be tied into PAM, and their PAM configuration
+files
+```
+[centos@server1 ~]$ ls -al /etc/pam.d/
+total 160
+drwxr-xr-x.   2 root root 4096 Mar  2 11:39 .
+drwxr-xr-x. 122 root root 8192 Mar 25 21:25 ..
+-rw-r--r--.   1 root root  272 Oct 30  2018 atd
+-rw-r--r--.   1 root root  192 Feb  2 16:31 chfn
+-rw-r--r--.   1 root root  192 Feb  2 16:31 chsh
+-rw-r--r--.   1 root root  232 Apr  1  2020 config-util
+-rw-r--r--.   1 root root  287 Aug  9  2019 crond
+lrwxrwxrwx.   1 root root   19 Feb 27 15:45 fingerprint-auth -> fingerprint-auth-ac
+-rw-r--r--.   1 root root  702 Feb 27 16:12 fingerprint-auth-ac
+-rw-r--r--.   1 root root  963 Nov 28  2017 lightdm
+-rw-r--r--.   1 root root  698 Nov 28  2017 lightdm-autologin
+-rw-r--r--.   1 root root  409 Nov 28  2017 lightdm-greeter
+-rw-r--r--.   1 root root   97 Oct  1 17:29 liveinst
+-rw-r--r--.   1 root root  796 Feb  2 16:31 login
+-rw-r--r--.   1 root root  413 Feb  5  2017 mate-screensaver
+-rw-r--r--.   1 root root  121 Nov  3  2018 mate-system-log
+-rw-r--r--.   1 root root  154 Apr  1  2020 other
+-rw-r--r--.   1 root root  188 Apr  1  2020 passwd
+lrwxrwxrwx.   1 root root   16 Feb 27 15:45 password-auth -> password-auth-ac
+-rw-r--r--.   1 root root 1033 Feb 27 16:12 password-auth-ac
+-rw-r--r--.   1 root root  510 Aug  6  2020 pluto
+-rw-r--r--.   1 root root  155 Apr  1  2020 polkit-1
+lrwxrwxrwx.   1 root root   12 Feb 27 15:45 postlogin -> postlogin-ac
+-rw-r--r--.   1 root root  330 Feb 27 15:45 postlogin-ac
+-rw-r--r--.   1 root root  144 Feb 27  2020 ppp
+-rw-r--r--.   1 root root  681 Feb  2 16:31 remote
+-rw-r--r--.   1 root root  143 Feb  2 16:31 runuser
+-rw-r--r--.   1 root root  138 Feb  2 16:31 runuser-l
+-rw-r--r--.   1 root root   36 Sep 30 14:19 screen
+lrwxrwxrwx.   1 root root   17 Feb 27 15:45 smartcard-auth -> smartcard-auth-ac
+-rw-r--r--.   1 root root  752 Feb 27 16:12 smartcard-auth-ac
+lrwxrwxrwx.   1 root root   25 Feb 27 15:42 smtp -> /etc/alternatives/mta-pam
+-rw-r--r--.   1 root root   76 Apr  1  2020 smtp.postfix
+-rw-r--r--.   1 root root  904 Aug  9  2019 sshd
+-rw-r--r--.   1 root root  540 Feb  2 16:31 su
+-rw-r--r--.   1 root root  200 Jan 26 21:56 sudo
+-rw-r--r--.   1 root root  178 Jan 26 21:56 sudo-i
+-rw-r--r--.   1 root root  137 Feb  2 16:31 su-l
+lrwxrwxrwx.   1 root root   14 Feb 27 15:45 system-auth -> system-auth-ac
+-rw-r--r--.   1 root root 1031 Feb 27 16:12 system-auth-ac
+-rw-r--r--.   1 root root   97 Aug  3  2017 system-config-language
+-rw-r--r--.   1 root root  129 Feb  2 16:34 systemd-user
+-rw-r--r--.   1 root root   84 Oct 30  2018 vlock
+-rw-r--r--.   1 root root  163 Feb 24 21:10 xserver
+```
+
+The shared libraries that PAM uses are all located at `/lib64/security/`
+
+We can configure some of the PAM modules by accessing the following files
+```
+[centos@server1 ~]$ ls -al /etc/security/
+total 68
+drwxr-xr-x.   6 root root 4096 Mar  9 21:24 .
+drwxr-xr-x. 122 root root 8192 Mar 25 21:25 ..
+-rw-r--r--.   1 root root 4564 Apr  1  2020 access.conf
+-rw-r--r--.   1 root root   82 Apr  1  2020 chroot.conf
+drwxr-xr-x.   2 root root  109 Feb 27 16:13 console.apps
+-rw-r--r--.   1 root root  604 Apr  1  2020 console.handlers
+-rw-r--r--.   1 root root  939 Apr  1  2020 console.perms
+drwxr-xr-x.   2 root root    6 Apr  1  2020 console.perms.d
+-rw-r--r--.   1 root root 3635 Apr  1  2020 group.conf
+-rw-r--r--.   1 root root 2442 Mar  9 21:20 limits.conf
+drwxr-xr-x.   2 root root   27 Feb 27 15:42 limits.d
+-rw-r--r--.   1 root root 1440 Apr  1  2020 namespace.conf
+drwxr-xr-x.   2 root root    6 Apr  1  2020 namespace.d
+-rwxr-xr-x.   1 root root 1019 Apr  1  2020 namespace.init
+-rw-------.   1 root root    0 Apr  1  2020 opasswd
+-rw-r--r--.   1 root root 2972 Apr  1  2020 pam_env.conf
+-rw-r--r--.   1 root root 1718 Dec  6  2011 pwquality.conf
+-rw-r--r--.   1 root root  419 Apr  1  2020 sepermit.conf
+-rw-r--r--.   1 root root 2179 Apr  1  2020 time.conf
+```
+
+The default behaviour when creating users using the useradd command is for the user's
+home directory to be created.  However if you are batch creating hundreds of users, you
+may not want to create all the home directories at user creation time, so you can turn off
+the home directory creation by editing the `/etc/login.defs` file and change the
+`CREATE_HOME` flag to no.
+```
+[centos@server1 ~]$ sudo vi /etc/login.defs
+
+#
+# If useradd should create home directories for users by default
+# On RH systems, we do. This option is overridden with the -m flag on
+# useradd command line.
+#
+CREATE_HOME     no
+```
+
+Then if we create a user we will see that his home directory has not been created, but
+if we grep the passwd file we can see what his home directory will be called when it's
+created.  We can also see the user's entry in the shadow file but it's showing as
+an invalid password because it hasn't been set yet
+```
+[centos@server1 ~]$ sudo useradd bob
+[centos@server1 ~]$ ls /home
+centos  user1
+[centos@server1 ~]$ grep bob /etc/passwd
+bob:x:1002:1003::/home/bob:/bin/bash
+[centos@server1 ~]$ sudo grep bob /etc/shadow
+bob:!!:18711:0:99999:7:::
+```
+
+To set a password for the user bob, we just used the `passwd` command
+```
+[centos@server1 ~]$ sudo passwd bob
+Changing password for user bob.
+New password:
+Retype new password:
+passwd: all authentication tokens updated successfully.
+```
+
+Now the new user has a password so should be able to log.  But the user doesn't
+have a home directory yet.  We can use PAM to automate the creation of home directories
+First we check to see if we have the correct module and service installed, the `oddjob`
+service
+```
+[centos@server1 ~]$ rpm -qa | grep oddjob
+oddjob-mkhomedir-0.31.5-4.el7.x86_64
+oddjob-0.31.5-4.el7.x86_64
+```
+
+Looks like we have the oddjob-mkhomedir module, and the service.  The mkhomedir mechanism
+is the preferred mechanism for creating home directories in Red Hat distros.  To use it,
+we need to enable and start the `oddjob` service.
+```
+[centos@server1 ~]$ systemctl enable oddjobd
+==== AUTHENTICATING FOR org.freedesktop.systemd1.manage-unit-files ===
+Authentication is required to manage system service or unit files.
+Authenticating as: centos
+Password:
+==== AUTHENTICATION COMPLETE ===
+Created symlink from /etc/systemd/system/multi-user.target.wants/oddjobd.service to /usr/lib/systemd/system/oddjobd.service.
+==== AUTHENTICATING FOR org.freedesktop.systemd1.reload-daemon ===
+Authentication is required to reload the systemd state.
+Authenticating as: centos
+Password:
+==== AUTHENTICATION COMPLETE ===
+[centos@server1 ~]$ systemctl start oddjobd
+==== AUTHENTICATING FOR org.freedesktop.systemd1.manage-units ===
+Authentication is required to manage system services or units.
+Authenticating as: centos
+Password:
+==== AUTHENTICATION COMPLETE ===
+[centos@server1 ~]$ sudo systemctl status oddjobd
+● oddjobd.service - privileged operations for unprivileged applications
+   Loaded: loaded (/usr/lib/systemd/system/oddjobd.service; enabled; vendor preset: disabled)
+   Active: active (running) since Thu 2021-03-25 21:52:07 GMT; 15s ago
+ Main PID: 2013 (oddjobd)
+   CGroup: /system.slice/oddjobd.service
+           └─2013 /usr/sbin/oddjobd -n -p /var/run/oddjobd.pid -t 300
+
+Mar 25 21:52:07 server1.example.com systemd[1]: Started privileged operations for unprivileged applications.
+```
+
+To enable the automatic home dir creation across all the PAM modules.
+```
+[centos@server1 ~]$ sudo authconfig --enablemkhomedir --update
+```
+
+Let's gain root privileges and look at the contents of the /etc/pam.d directory,
+grepping for mkhomedir.  There are references to the `pam_oddjob_mkhomedir` are in
+a lot of PAM modules.  Using the `authconfig` command enables it for us in all the modules.
+Without that we'd have to manually configure all these modules.
+```
+[centos@server1 ~]$ sudo -i
+[root@server1 ~]# cd /etc/pam.d/
+[root@server1 /etc/pam.d]# grep mkhomedir *
+fingerprint-auth:session     optional      pam_oddjob_mkhomedir.so umask=0077
+fingerprint-auth-ac:session     optional      pam_oddjob_mkhomedir.so umask=0077
+password-auth:session     optional      pam_oddjob_mkhomedir.so umask=0077
+password-auth-ac:session     optional      pam_oddjob_mkhomedir.so umask=0077
+smartcard-auth:session     optional      pam_oddjob_mkhomedir.so umask=0077
+smartcard-auth-ac:session     optional      pam_oddjob_mkhomedir.so umask=0077
+system-auth:session     optional      pam_oddjob_mkhomedir.so umask=0077
+system-auth-ac:session     optional      pam_oddjob_mkhomedir.so umask=0077
+```
+
+Having done that, if we now log in as the new user bob, we can see that his home
+dir is created at login time.
+```
+[root@server1 /etc/pam.d]# su - bob
+Creating home directory for bob.
+[bob@server1 ~]$ pwd
+/home/bob
+[bob@server1 ~]$ ls -al
+total 16
+drwx------. 3 bob  bob   92 Mar 25 21:54 .
+drwxr-xr-x. 5 root root  44 Mar 25 21:54 ..
+-rw-------. 1 bob  bob   18 Mar 25 21:54 .bash_logout
+-rw-------. 1 bob  bob  199 Mar 25 21:54 .bash_profile
+-rw-------. 1 bob  bob  236 Mar 25 21:54 .bashrc
+drwx------. 4 bob  bob   39 Mar 25 21:54 .mozilla
+-rw-------. 1 bob  bob  658 Mar 25 21:54 .zshrc
+```
+
+### Configure Password Policies
+
+PAM modules can be used to control the quality/complexity of user passwords
+
+The pam.d directory holds configuration files for programs that can use PAM modules.
+
+There is a shared file that is used by many programs, `system-auth`
+
+To look at the PAM configuration that controls password changing
+```
+[centos@server1 ~]$ cat /etc/pam.d/system-auth
+#%PAM-1.0
+# This file is auto-generated.
+# User changes will be destroyed the next time authconfig is run.
+auth        required      pam_env.so
+auth        required      pam_faildelay.so delay=2000000
+auth        sufficient    pam_unix.so nullok try_first_pass
+auth        requisite     pam_succeed_if.so uid >= 1000 quiet_success
+auth        required      pam_deny.so
+
+account     required      pam_unix.so
+account     sufficient    pam_localuser.so
+account     sufficient    pam_succeed_if.so uid < 1000 quiet
+account     required      pam_permit.so
+
+password    requisite     pam_pwquality.so try_first_pass local_users_only retry=3 authtok_type=
+password    sufficient    pam_unix.so sha512 shadow nullok try_first_pass use_authtok
+password    required      pam_deny.so
+
+session     optional      pam_keyinit.so revoke
+session     required      pam_limits.so
+-session     optional      pam_systemd.so
+session     optional      pam_oddjob_mkhomedir.so umask=0077
+session     [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+session     required      pam_unix.so
+```
+
+The settings in this file relevant to passwords are all of `password` event.  So
+password changes fall under `password` type events.
+```
+password    requisite     pam_pwquality.so try_first_pass local_users_only retry=3 authtok_type=
+```
+`requisite` means it has to pass success for anything else to run.  Then we have the name of
+the module `pam_pwquality.so`.  These shared libraries are stored in `/lib64/security`.
+This is followed by some options for the module such as `try_first_pass` etc. The
+`pam_pwquality.so` is where we are setting our password quality, and the configuration for this
+is outlined below.
+
+
+To look at password quality config file , look at the `/etc/security/pwquality.conf` file.
+It contains policies for things such as max and min number of characters and lots of other
+constraints that can be placed on password changes.
+```
+[centos@server1 ~]$ less /etc/security/pwquality.conf
+Configuration for systemwide password quality limits
+# Defaults:
+#
+# Number of characters in the new password that must not be present in the
+# old password.
+# difok = 5
+#
+# Minimum acceptable size for the new password (plus one if
+# credits are not disabled which is the default). (See pam_cracklib manual.)
+# Cannot be set to lower value than 6.
+# minlen = 9
+#
+# The maximum credit for having digits in the new password. If less than 0
+# it is the minimum number of digits in the new password.
+# dcredit = 1
+#
+# The maximum credit for having uppercase characters in the new password.
+# If less than 0 it is the minimum number of uppercase characters in the new
+# password.
+# ucredit = 1
+#
+# The maximum credit for having lowercase characters in the new password.
+# If less than 0 it is the minimum number of lowercase characters in the new
+# password.
+# lcredit = 1
+#
+# The maximum credit for having other characters in the new password.
+# If less than 0 it is the minimum number of other characters in the new
+# password.
+# ocredit = 1
+...
+```
+
+There is a handy program that gives your password a score based on the policies set
+When you type the command `pwscore` you then enter a password and it gives it a
+quality rating
+```
+[centos@server1 ~]$ pwscore
+Password1
+Password quality check failed:
+ The password fails the dictionary check - it is based on a dictionary word
+
+[centos@server1 ~]$ pwscore
+Aorangi&1922
+78
+```
+
+It even detects if your password is based on a dictionary word, even if you are using
+symbols that resemble letters;
+```
+[centos@server1 ~]$ pwscore
+P@$$w0rd1
+Password quality check failed:
+ The password fails the dictionary check - it is based on a dictionary word
+ ```
+
+ `pwscore` values run from 0 to 100, where 0 is a very weak password and 100 is a very
+ strong one
+
+ ### Restrict Access to Resources
+
+ It is quite likely that you do not want to allow your users unfettered access to
+ all of the resources on your linux system, as it is most likely shared with other
+ users and services.  We can use PAM to control the level of access that users have through
+ to the resources.
+
+ To see the restrictions that are in place use the `ulimit` command.
+ We can actually change some of these settings ourselves and don't need PAM to do so
+ ```
+ [centos@server1 ~]$ ulimit -a
+core file size          (blocks, -c) 0
+data seg size           (kbytes, -d) unlimited
+scheduling priority             (-e) 0
+file size               (blocks, -f) unlimited
+pending signals                 (-i) 3832
+max locked memory       (kbytes, -l) 64
+max memory size         (kbytes, -m) unlimited
+open files                      (-n) 1024
+pipe size            (512 bytes, -p) 8
+POSIX message queues     (bytes, -q) 819200
+real-time priority              (-r) 0
+stack size              (kbytes, -s) 8192
+cpu time               (seconds, -t) unlimited
+max user processes              (-u) 3832
+virtual memory          (kbytes, -v) unlimited
+file locks                      (-x) unlimited
+```
+
+To view a particular limit use the switch that you can identify from the above
+output.  For example, to view the `max user processes (-u)`;
+```
+[centos@server1 ~]$ ulimit -u
+3832
+```
+
+To change a particular value, you use the flag of the limit you want to change,
+with the new value, such as;
+```
+[centos@server1 ~]$ ulimit -u 10
+[centos@server1 ~]$ ulimit -u
+10
+```
+
+To demonstrate this new limit we can create a script that will call itself and therefore
+create a new process each time it does it.  The `$0` is what calls the current script.
+However after 10 concurrent processes are reached the limit should kick in and prevent
+a new process from being created.
+```
+[centos@server1 ~]$ vi test.sh
+#!/bin/bash
+echo "test test"
+$0
+```
+
+Then when we make it executable and run it we get the following;
+```
+[centos@server1 ~]$ chmod +x test.sh
+[centos@server1 ~]$ ./test.sh
+test test
+test test
+test test
+test test
+test test
+test test
+test test
+test test
+./test.sh: fork: retry: No child processes
+./test.sh: fork: retry: No child processes
+./test.sh: fork: retry: No child processes
+./test.sh: fork: retry: No child processes
+```
+
+The above describes how you could impose a limit on your own user.  However the more
+likely scenario would be an admin imposing limits across users and groups in the organization.
+The settings for this is controlled by the `/etc/security/limits.conf` file.
+This limits policy file is laid out as follows;
+```
+#<domain>        <type>  <item>  <value>
+```
+
+`domain` can be a user name, or a group name (with "@group" syntax)
+`type` can be `soft` or `hard`.  `soft` is the current effective limit.  `hard` is the absolute
+ceiling that cannot be exceeded.  An admin can adjust the soft limit but it can never exceed
+the hard limit.
+`item` - describes where the limits can be implemented on.  The list of items are as follows;
+```
+#<item> can be one of the following:
+#        - core - limits the core file size (KB)
+#        - data - max data size (KB)
+#        - fsize - maximum filesize (KB)
+#        - memlock - max locked-in-memory address space (KB)
+#        - nofile - max number of open file descriptors
+#        - rss - max resident set size (KB)
+#        - stack - max stack size (KB)
+#        - cpu - max CPU time (MIN)
+#        - nproc - max number of processes
+#        - as - address space limit (KB)
+#        - maxlogins - max number of logins for this user
+#        - maxsyslogins - max number of logins on the system
+#        - priority - the priority to run user process with
+#        - locks - max number of file locks the user can hold
+#        - sigpending - max number of pending signals
+#        - msgqueue - max memory used by POSIX message queues (bytes)
+#        - nice - max nice priority allowed to raise to values: [-20, 19]
+#        - rtprio - max realtime priority
+```
+
+So for example if you wanted to set a limit for all users to have 4 concurrent logins;
+```
+#<domain>        <type>  <item>     <value>
+
+*                -       maxlogins  4
+```
+
+To make some limits for the users group for number of processes.  This is setting
+a soft limit (the effective limit) of 50 and a hard limit of 75, which cannot be
+exceeded.
+```
+#<domain>        <type>  <item>     <value>
+@users           soft    nproc      50
+@users           hard    nproc      75
+```
+
+### Control Access Times
+
+We can in effect put a virtual "lock" on our servers, ensuring users can only
+log in at certain times of day using PAM.
+
+To impose restrictions around ssh access we need to add a new restriction policy
+to the `/etc/pam.d/sshd` file.  Add a new entry to the account section of that file,
+above the other account entries
+```
+[centos@server1 /etc/pam.d]$ sudo vi sshd
+...
+account    required     pam_time.so
+account    required     pam_nologin.so
+account    include      password-auth
+...
+```
+The new restriction is an `account` restriction, it is `required` which means we need to
+pass but can continue. That's why we need to put this restriction in first above the others.
+`pam_time.so` is the library file that is going to be checked when this restriction is
+enacted.  That module is located in the `/lib64/security`
+
+The configuration for this module is located in `/etc/security/time.conf`
+
+To create a new login time restriction in this file, edit it and add in the shown
+line at the bottom of the file.
+```
+[centos@server1 /etc/pam.d]$ sudo vi /etc/security/time.conf
+*;*;centos|bob;Wk0800-1800
+```
+
+* The first `*` is for services, we have specified all services although we could have
+specified `sshd`.
+* The second `*` is for terminals, again we have specified all terminals.
+* The third section is a user or list of users, in this case we have specified a pipe-delimited
+list of 2 users, "centos" and "bob"
+* The last section is the actual time window those users are allowed to log in under. In
+this case it is week days (`Wk`) between the hours of 0800 and 1800.
+
+If one of those users attempts to login outside of those hours then they will be blocked.
+
+## Implementing OpenLDAP Directories on CentOS7
+
+### Installing OpenLDAP
+
+First of all we need to check if our hostname has been set
+```
+centos@server1 ~]$ hostname
+server1.example.com
+```
+
+Then we need to gain root privileges
+```
+[centos@server1 ~]$ su -
+Password:
+Last login: Wed Mar 24 20:53:01 GMT 2021 on pts/0
+```
+
+Then we need to add an entry for our machine and hostname into our `/etc/hosts` file.
+We can confirm our ip address by running `ip a s`.  We can confirm that our hosts
+file has the entry by pinging the hostname FQDN.
+```
+[root@server1 ~]# echo "192.168.99.107 server1.example.com" >> /etc/hosts
+[root@server1 ~]# ping server1.example.com
+PING server1.example.com (192.168.99.107) 56(84) bytes of data.
+64 bytes from server1.example.com (192.168.99.107): icmp_seq=1 ttl=64 time=0.064 ms
+64 bytes from server1.example.com (192.168.99.107): icmp_seq=2 ttl=64 time=0.055 ms
+```
+
+We can check to make sure no ldap server is listening
+```
+[root@server1 ~]# netstat -ltn
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN
+tcp        0      0 127.0.0.1:25            0.0.0.0:*               LISTEN
+tcp6       0      0 :::22                   :::*                    LISTEN
+tcp6       0      0 ::1:25                  :::*                    LISTEN
+```
+
+Next we need to add a firewall rule to allow ldap traffic through. The firewall
+settings need to be reloaded for it to take effect in the current session (otherwise
+we need to create a new session)
+```
+[root@server1 ~]# firewall-cmd --permanent --add-service=ldap
+success
+[root@server1 ~]# firewall-cmd --reload
+success
+```
+
+Finally we install the various ldap packages and tools using `yum`
+```
+[root@server1 ~]# yum install -y openldap openldap-clients openldap-servers migrationtools.noarch
+```
+
+### Configure OpenLDAP Server
+
+To get a DB Config example in place;
+```
+[root@server1 ~]# cp /usr/share/openldap-servers/DB_CONFIG.example /var/lib/ldap/DB_CONFIG
+[root@server1 ~]# ls -l /var/lib/ldap/
+total 4
+-rw-r--r--. 1 root root 845 Mar 27 21:22 DB_CONFIG
+```
+
+Next we run the `slaptest` command to generate the db files (it looks like a failure
+but it actually generates the necessary files we need).  We need to change the ownership
+to the `ldap` user and `ldap` group as well
+```
+[root@server1 ~]# slaptest
+605fa268 hdb_db_open: database "dc=my-domain,dc=com": db_open(/var/lib/ldap/id2entry.bdb) failed: No such file or directory (2).
+605fa268 backend_startup_one (type=hdb, suffix="dc=my-domain,dc=com"): bi_db_open failed! (2)
+slap_startup failed (test would succeed using the -u switch)
+[root@server1 ~]# chown ldap.ldap /var/lib/ldap/*
+[root@server1 ~]# ls -l /var/lib/ldap/
+total 18968
+-rw-r--r--. 1 ldap ldap     2048 Mar 27 21:23 alock
+-rw-------. 1 ldap ldap  2326528 Mar 27 21:23 __db.001
+-rw-------. 1 ldap ldap 17448960 Mar 27 21:23 __db.002
+-rw-------. 1 ldap ldap  1884160 Mar 27 21:23 __db.003
+-rw-r--r--. 1 ldap ldap      845 Mar 27 21:22 DB_CONFIG
+```
+
+Next we enable and start the OpenLDAP service
+```
+[root@server1 ~]# systemctl start slapd
+[root@server1 ~]# systemctl enable slapd
+Created symlink from /etc/systemd/system/multi-user.target.wants/slapd.service to /usr/lib/systemd/system/slapd.service.
+[root@server1 ~]# systemctl status slapd
+● slapd.service - OpenLDAP Server Daemon
+   Loaded: loaded (/usr/lib/systemd/system/slapd.service; enabled; vendor preset: disabled)
+   Active: active (running) since Sat 2021-03-27 21:27:36 GMT; 11s ago
+     Docs: man:slapd
+           man:slapd-config
+           man:slapd-hdb
+           man:slapd-mdb
+           file:///usr/share/doc/openldap-servers/guide.html
+ Main PID: 5331 (slapd)
+   CGroup: /system.slice/slapd.service
+           └─5331 /usr/sbin/slapd -u ldap -h ldapi:/// ldap:///
+```
+
+We check the ports being listened on to see if ldap is running
+```
+[root@server1 ~]# netstat -ltn
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State
+tcp        0      0 0.0.0.0:389             0.0.0.0:*               LISTEN
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN
+tcp        0      0 127.0.0.1:25            0.0.0.0:*               LISTEN
+tcp6       0      0 :::389                  :::*                    LISTEN
+tcp6       0      0 :::22                   :::*                    LISTEN
+tcp6       0      0 ::1:25                  :::*                    LISTEN
+[root@server1 ~]# netstat -lt
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State
+tcp        0      0 0.0.0.0:ldap            0.0.0.0:*               LISTEN
+tcp        0      0 0.0.0.0:ssh             0.0.0.0:*               LISTEN
+tcp        0      0 localhost:smtp          0.0.0.0:*               LISTEN
+tcp6       0      0 [::]:ldap               [::]:*                  LISTEN
+tcp6       0      0 [::]:ssh                [::]:*                  LISTEN
+tcp6       0      0 localhost:smtp          [::]:*                  LISTEN
+```
+
+To configure the ldap schema files.  The schema defines what can be created in our
+directory service.
+```
+[root@server1 /etc/openldap/schema]# ldapadd -Y EXTERNAL -H ldapi:/// -D "cn=config" -f cosine.ldif
+SASL/EXTERNAL authentication started
+SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+SASL SSF: 0
+adding new entry "cn=cosine,cn=schema,cn=config"
+
+[root@server1 /etc/openldap/schema]# ldapadd -Y EXTERNAL -H ldapi:/// -D "cn=config" -f nis.ldif
+SASL/EXTERNAL authentication started
+SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+SASL SSF: 0
+adding new entry "cn=nis,cn=schema,cn=config"
+```
+
+To create an encrypted password for our directory administrator, passing in the secret
+(-s) and removing the trailing carraige return (-n) and sending it through to the
+rootpwd file
+```
+[root@server1 ~]# slappasswd -s Password1 -n > rootpwd
+[root@server1 ~]# cat rootpwd
+{SSHA}t2GXHIRTx7bRxiuf5ucCxs35fTA1YTAP
+```
+
+We are now going to import this password into another configuration file.
+The contents of this file are provided as part of the course notes, we are just
+inserting the SSHA of the password created above.
+```
+[root@server1 ~]# vi config.ldif
+
+dn: olcDatabase={2}hdb,cn=config
+changetype: modify
+replace: olcSuffix
+olcSuffix: dc=example,dc=com
+
+dn: olcDatabase={2}hdb,cn=config
+changetype: modify
+replace: olcRootDN
+olcRootDN: cn=Manager,dc=example,dc=com
+
+dn: olcDatabase={2}hdb,cn=config
+changetype: modify
+replace: olcRootPW
+#Password is Password1 or add your own
+olcRootPW: {SSHA}t2GXHIRTx7bRxiuf5ucCxs35fTA1YTAP
+
+dn: cn=config
+changetype: modify
+replace: olcLogLevel
+olcLogLevel: 0
+
+dn: olcDatabase={1}monitor,cn=config
+changetype: modify
+replace: olcAccess
+olcAccess: {0}to * by dn.base="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" read by dn.base="cn=Manager,dc=example,dc=com" read by * none
+```
+
+Finally, we can import this config file using the ldapmodify command.  This step
+completes the configuration of the ldap server
+```
+[root@server1 ~]# ldapmodify -Y EXTERNAL -H ldapi:/// -D "cn=config" -f config.ldif
+SASL/EXTERNAL authentication started
+SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+SASL SSF: 0
+modifying entry "olcDatabase={2}hdb,cn=config"
+
+modifying entry "olcDatabase={2}hdb,cn=config"
+
+modifying entry "olcDatabase={2}hdb,cn=config"
+
+modifying entry "cn=config"
+
+modifying entry "olcDatabase={1}monitor,cn=config"
+```
+
+### Create directory structure
+
+The previous step was about configuring the LDAP server. Now we need to create the
+hierarchal structure, which is going to look after our directory tree. We are now
+going to create the top-level containers that are going to organize our directory
+entries.
+
+```
+[root@server1 ~]# vi structure.ldif
+dn: dc=example,dc=com
+dc: example
+objectClass: top
+objectClass: domain
+
+dn: ou=people,dc=example,dc=com
+ou: people
+objectClass: top
+objectClass: organizationalUnit
+
+dn: ou=group,dc=example,dc=com
+ou: group
+objectClass: top
+objectClass: organizationalUnit
+```
+
+Next we are going to import that ldif file using ldapadd command.  We are going
+to authenticate as the admin user we created in the config.ldif file (cn=Manager),
+so we need to enter that password that we created for that user.  This will create
+the upper level containers
+```
+[root@server1 ~]# ldapadd -x -W -D "cn=Manager,dc=example,dc=com" -f structure.ldif
+Enter LDAP Password:
+adding new entry "dc=example,dc=com"
+
+adding new entry "ou=people,dc=example,dc=com"
+
+adding new entry "ou=group,dc=example,dc=com"
+```
+
+If we want to check if we have the entries in correctly we can do an ldapsearch
+```
+[root@server1 ~]# ldapsearch -x -W -D "cn=Manager,dc=example,dc=com" -b "dc=example,dc=com" -s sub "(objectclass=organizationalUnit)"
+Enter LDAP Password:
+# extended LDIF
+#
+# LDAPv3
+# base <dc=example,dc=com> with scope subtree
+# filter: (objectclass=organizationalUnit)
+# requesting: ALL
+#
+
+# people, example.com
+dn: ou=people,dc=example,dc=com
+ou: people
+objectClass: top
+objectClass: organizationalUnit
+
+# group, example.com
+dn: ou=group,dc=example,dc=com
+ou: group
+objectClass: top
+objectClass: organizationalUnit
+
+# search result
+search: 2
+result: 0 Success
+
+# numResponses: 3
+# numEntries: 2
+```
