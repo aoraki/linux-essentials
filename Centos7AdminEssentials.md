@@ -885,12 +885,16 @@ root
 [root@server1 ~]#
 ```
 
-### sudo command
+### sudo command
 The `sudo` command can be used to gain root privileges without the root password.  When you use `sudo` a command you will be prompted for your password.
 
 Once you authenticate, the session lasts for 5 mins, so even if you `sudo` again in that timeframe, you won't be prompted for a password again
 
-### sudoers file
+`sudo -i` is a quick way to gain root privileges.  You can run this as a standalone
+command then and run other commands afterwards using root privileges you have just assumed.
+
+
+### sudoers file
 
 **Location** : `/etc/sudoers`
 
@@ -911,7 +915,7 @@ root ALL=(ALL) ALL // Allow
 Tim,Tammy,Roger,Dawn 192.168.0.6=(admins)/sbin/halt, /sbin/init, /sbin/poweroff, /sbin/reboot, /sbin/shutdown, /sbin/telinit
 ```
 
-#### Using Aliases in the sudoers file
+#### Using Aliases in the sudoers file
 Aliases can be used. Instead of listing Tim, Tammy, Roger, Dawn, a `User_Alias` can be created.
 ```
 User_Alias      REBOOT_USERS = Tim, Tammy, Roger, Dawn
