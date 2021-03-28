@@ -1430,7 +1430,7 @@ Created symlink from /etc/systemd/system/multi-user.target.wants/slapd.service t
            └─5331 /usr/sbin/slapd -u ldap -h ldapi:/// ldap:///
 ```
 
-We check the ports being listened on to see if ldap is running
+We check the ports being listened on to see if ldap is running using `netstat`
 ```
 [root@server1 ~]# netstat -ltn
 Active Internet connections (only servers)
@@ -1469,8 +1469,8 @@ adding new entry "cn=nis,cn=schema,cn=config"
 ```
 
 To create an encrypted password for our directory administrator, passing in the secret
-(-s) and removing the trailing carraige return (-n) and sending it through to the
-rootpwd file
+(`-s`) and removing the trailing carraige return (`-n`) and sending it through to the
+rootpwd file, which is just a temporary file that we need to store this password.
 ```
 [root@server1 ~]# slappasswd -s Password1 -n > rootpwd
 [root@server1 ~]# cat rootpwd
@@ -1510,7 +1510,7 @@ replace: olcAccess
 olcAccess: {0}to * by dn.base="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" read by dn.base="cn=Manager,dc=example,dc=com" read by * none
 ```
 
-Finally, we can import this config file using the ldapmodify command.  This step
+Finally, we can import this config file using the `ldapmodify` command.  This step
 completes the configuration of the ldap server
 ```
 [root@server1 ~]# ldapmodify -Y EXTERNAL -H ldapi:/// -D "cn=config" -f config.ldif
@@ -1554,7 +1554,7 @@ objectClass: organizationalUnit
 ```
 
 Next we are going to import that ldif file using ldapadd command.  We are going
-to authenticate as the admin user we created in the config.ldif file (cn=Manager),
+to authenticate as the admin user we created in the `config.ldif` file (cn=Manager),
 so we need to enter that password that we created for that user.  This will create
 the upper level containers
 ```
@@ -1598,3 +1598,501 @@ result: 0 Success
 # numResponses: 3
 # numEntries: 2
 ```
+
+### Creating Groups and Users in OpenLDAP
+
+Now that we have our top level structures of our directory in place we can proceed with creating
+groups and users.  We are going to create the groups first so that they are in place
+and it is easy for us to add new users to those groups
+
+We need to create a group.ldif file with the following contents (obtained from course files)
+```
+[root@server1 ~]# vi group.ldif
+dn: cn=ldapusers,ou=group,dc=example,dc=com
+objectClass: posixGroup
+cn: ldapusers
+gidNumber: 4000
+```
+In the above config we are creating a group called `ldapusers` (`cn=ldapusers`).
+It is being created in the `group` container (`ou=group`) within domain `dc=example`.
+The object class is posixGroup and this time because everything does inherit from "top"
+it is unneccessary to add that in, it's implied.
+The common name (`cn`) is ldapusers.
+We have to have a `gidNumber`.  We are starting with 4000 as the starting group id number
+just to be pretty clear and distinct from the other group ids that we created on our local system.
+
+To create the group specified above, we run this command, entering the password of the
+ldap admin user (`cn=Manager`)
+```
+[root@server1 ~]# ldapadd -x -W -D "cn=Manager,dc=example,dc=com" -f group.ldif
+Enter LDAP Password:
+adding new entry "cn=ldapusers,ou=group,dc=example,dc=com"
+```
+
+Having created our group now we can go ahead and create our users.  Users have a little
+bit more properties than groups.  We can use migration tools to held add in new users on our
+system into LDAP, but based on the structure of existing users and they will add in the
+structure that we need, but we just have to make sure that is set correctly with
+the configuration file.
+
+First, edit the `/etc/share/migrationtools/migratio_common.ph` file and change `DEFAULT_MAIL_DOMAIN`
+and `DEFAULT_BASE` to the following values;
+```
+# Default DNS domain
+$DEFAULT_MAIL_DOMAIN = "example.com";
+
+# Default base
+$DEFAULT_BASE = "dc=example,dc=com";
+```
+
+Next we are going to grab an existing user, `centos` from our `/etc/passwd` and just
+copy the details of that user into a new file `~/passwd`
+```
+[root@server1 ~]# grep centos /etc/passwd > passwd
+[root@server1 ~]# cat passwd
+centos:x:1000:1000:centos:/home/centos:/bin/bash
+```
+
+Then we can create a user.ldif template file based off the centos user using the
+migrate_passwd.pl perl script
+```
+[root@server1 ~]# /usr/share/migrationtools/migrate_passwd.pl passwd user.ldif
+```
+
+Now that we have a user.ldif template we can use that to add in new users.  We just
+need to edit the users.ldif file and replace the references to the centos user to the new
+user.  Fields such as `dn`, `uid`, `cn`, `uidNumber`, `gidNumber`, `homeDirectory` and `gecos`
+need to be amended to reflect the new user.
+
+Then we can use the ldapadd command to add the user based of the user.ldif template.
+```
+[root@server1 ~]# ldapadd -x -W -D "cn=Manager,dc=example,dc=com" -f user.ldif
+Enter LDAP Password:
+adding new entry "uid=fred,ou=People,dc=example,dc=com"
+```
+
+We have our directory structure up and running.  Now that we our LDAP server
+set up we can move on and demonstrate how to set up authentication against an OpenLDAP
+server.
+
+## Implementing OpenLDAP authentication in CentOS7
+
+### Install and Configure the OpenLDAP client
+
+We are going to use a separate server to the one that we installed the LDAP Server
+on.  Log on to server2
+
+First we are going to append an entry into our /etc/hosts file for the server where
+the LDAP Server is installed, which in our case is server1.example.com.  Ping it
+by it's hostname to ensure we can hit it.
+```
+[root@server2 ~]# echo "192.168.99.107 server1.example.com" >> /etc/hosts
+[root@server2 ~]# ping server1.example.com
+PING server1.example.com (192.168.99.107) 56(84) bytes of data.
+64 bytes from server1.example.com (192.168.99.107): icmp_seq=1 ttl=64 time=0.984 ms
+64 bytes from server1.example.com (192.168.99.107): icmp_seq=2 ttl=64 time=0.637 ms
+```
+
+Next we are going to install oddjob-mkhomedir to ensure our home directories get created at
+login time.  When it is installed we enable and start the oddjobd service
+```
+[root@server2 ~]# yum install oddjob-mkhomedir
+root@server2 ~]# systemctl start oddjobd
+[root@server2 ~]# systemctl enable oddjobd
+Created symlink from /etc/systemd/system/multi-user.target.wants/oddjobd.service to /usr/lib/systemd/system/oddjobd.service.
+[root@server2 ~]# systemctl status oddjobd
+● oddjobd.service - privileged operations for unprivileged applications
+   Loaded: loaded (/usr/lib/systemd/system/oddjobd.service; enabled; vendor preset: disabled)
+   Active: active (running) since Sun 2021-03-28 12:23:54 IST; 12s ago
+ Main PID: 1502 (oddjobd)
+   CGroup: /system.slice/oddjobd.service
+           └─1502 /usr/sbin/oddjobd -n -p /var/run/oddjobd.pid -t 300
+```
+
+Then we are going to install some openldap client tools
+```
+[root@server2 ~]# yum install openldap-clients nss-pam-ldapd
+```
+
+Once installed we need to configure the client.  There are two ways
+METHOD 1 : `authconfig-tui`
+This is a terminal menu-system tool that allows you to configure your ldap client.
+On the first screen you need to enable "Use LDAP" and "Use LDAP Authentication" in
+addition to what is already enabled on that screen.
+On the second screen, don't enable "Use TLS" but change the Server to "ldap://server1.example.com"
+Keep the Base DN to what it is "dc=example,dc=com".  Click on Ok to save the settings and
+exit the `authconfig-tui` tool
+```
+[root@server2 ~]# authconfig-tui
+```
+
+METHOD 2 : `authconfig`
+This is a command line tool that does the same as the tool above, but without the
+nice menu system
+```
+[root@server2 ~]# authconfig --enableldap --ldapserver=server1.example.com --ldapbasedn="dc=example,dc=com" --enablemkhomedir --update
+```
+
+If we grep the `/etc/nsswitch.conf` file we will see that `passwd` (the user DB) has been
+enabled for ldap
+```
+[root@server2 ~]# grep passwd /etc/nsswitch.conf
+#passwd:    db files nisplus nis
+passwd:     files sss ldap
+```
+
+If we look at passwd using the `getent` tool, we'll see the user we created via ldap at
+the bottom of the list
+```
+[root@server2 ~]# getent passwd
+root:x:0:0:root:/root:/bin/bash
+bin:x:1:1:bin:/bin:/sbin/nologin
+...
+...
+fred:x:4000:4000:fred bloggs:/home/fred:/bin/bash
+```
+
+Finally, if we login as this new user, fred, we will see that it's home directory
+will be created and if we run the `id` command we will see that it is part of the
+ldapusers group we created earlier.
+```
+[root@server2 ~]# su - fred
+Creating home directory for fred.
+[fred@server2 ~]$ id
+uid=4000(fred) gid=4000(ldapusers) groups=4000(ldapusers) context=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
+```
+
+### Listing Users and Groups
+
+We've set up the LDAP client on server2, but not on server1 (which is where the LDAP
+server is installed).  This means that we'll be able to easily list our ldap users and
+groups on server2 using the standard posix tools such as `getent`, but not on server1.
+
+On the server that the LDAP client is installed, you can run `getent passwd`
+and you'll be able to see users that are in the LDAP database.  The same thing with
+`getent group`, you'll be able to see the LDAP groups that have been creatd.
+If you can see these users in the `/etc/passwd` file on a server, it means that those
+users can login to those servers.
+
+This capability has been setup through the name service switch file.  If you grep
+the /etc/nsswitch.conf file for "ldap" you can see what system entities have been
+enabled for ldap
+```
+[root@server2 ~]# grep ldap /etc/nsswitch.conf
+passwd:     files sss ldap
+shadow:     files sss ldap
+group:      files sss ldap
+netgroup:   files sss ldap
+automount:  files ldap
+```
+
+If we don't want ldap enabled for some of these we can turn it off by editing the
+nsswitch.conf file and removing ldap for the relevant entities.  You might want to
+do this because the more entities that have information stored in ldap, the more lookups
+will be made against ldap.
+
+IF you were to login to server1 and run `getent passwd` or `getent group`, you will
+not see the ldap users or groups on that machine, only your local users and groups.
+This is because it has not been set up as an LDAP client.  As such, LDAP users
+will not be able to login to server1.  This is best practice behaviour as standard users
+should not be able to login to domain controllers.
+
+### Search the Directory using the OpenLDAP client
+
+If you want to query the LDAP directory from a machine with the LDAP client, you
+don't actually need to login to the LDAP server, you can just run a query.
+
+To initiate an ldapsearch.  We can specify the base that we want to search (`-b`)
+which in our case is "dc=example,dc=com". The response from this command includes a lot of
+metadata
+```
+[root@server2 ~]# ldapsearch -x -H ldap://server1.example.com -b dc=example,dc=com
+# extended LDIF
+#
+# LDAPv3
+# base <dc=example,dc=com> with scope subtree
+# filter: (objectclass=*)
+# requesting: ALL
+#
+
+# example.com
+dn: dc=example,dc=com
+dc: example
+objectClass: top
+objectClass: domain
+
+# people, example.com
+dn: ou=people,dc=example,dc=com
+ou: people
+objectClass: top
+objectClass: organizationalUnit
+
+# group, example.com
+dn: ou=group,dc=example,dc=com
+ou: group
+objectClass: top
+objectClass: organizationalUnit
+...
+...
+# search result
+search: 2
+result: 0 Success
+
+# numResponses: 6
+# numEntries: 5
+```
+
+By adding the `-LLL` flag to our command we will just get back the data from our
+search, minus the metadata.
+```
+[root@server2 ~]# ldapsearch -x -LLL -H ldap://server1.example.com -b dc=example,dc=com
+dn: dc=example,dc=com
+dc: example
+objectClass: top
+objectClass: domain
+
+dn: ou=people,dc=example,dc=com
+ou: people
+objectClass: top
+objectClass: organizationalUnit
+
+dn: ou=group,dc=example,dc=com
+ou: group
+objectClass: top
+objectClass: organizationalUnit
+
+dn: cn=ldapusers,ou=group,dc=example,dc=com
+objectClass: posixGroup
+cn: ldapusers
+gidNumber: 4000
+
+dn: uid=fred,ou=people,dc=example,dc=com
+uid: fred
+cn: fred
+objectClass: account
+objectClass: posixAccount
+objectClass: top
+objectClass: shadowAccount
+userPassword:: e2NyeXB0fSQ2JDFNTi5lNEkvSC81dzZDUWckUDllN29RdWI5dm0vNnBTQWFvZU9
+ rbDUxTUMyWnNVbU5pbkNrTmoyMXI2OU1pRGQuUWJpeDhhM0FEdjQuUGxZcGRrVXp1TzBPQVlGT1Jv
+ LkFteHIzVjE=
+shadowLastChange: 18707
+shadowMin: 0
+shadowMax: 99999
+shadowWarning: 7
+loginShell: /bin/bash
+uidNumber: 4000
+gidNumber: 4000
+homeDirectory: /home/fred
+gecos: fred bloggs
+```
+
+If you just want to return users for your search (identified by objectclass=account)
+```
+[root@server2 ~]# ldapsearch -x -LLL -H ldap://server1.example.com -b dc=example,dc=com "(objectclass=account)"
+dn: uid=fred,ou=people,dc=example,dc=com
+uid: fred
+cn: fred
+objectClass: account
+objectClass: posixAccount
+objectClass: top
+objectClass: shadowAccount
+userPassword:: e2NyeXB0fSQ2JDFNTi5lNEkvSC81dzZDUWckUDllN29RdWI5dm0vNnBTQWFvZU9
+ rbDUxTUMyWnNVbU5pbkNrTmoyMXI2OU1pRGQuUWJpeDhhM0FEdjQuUGxZcGRrVXp1TzBPQVlGT1Jv
+ LkFteHIzVjE=
+shadowLastChange: 18707
+shadowMin: 0
+shadowMax: 99999
+shadowWarning: 7
+loginShell: /bin/bash
+uidNumber: 4000
+gidNumber: 4000
+homeDirectory: /home/fred
+dn: uid=sally,ou=people,dc=example,dc=com
+gecos: fred bloggs
+```
+
+You can combine filter conditions using the `&`.  You can also use `|` to
+create an OR condition
+```
+root@server2 ~]# ldapsearch -x -LLL -H ldap://server1.example.com -b dc=example,dc=com "(&(objectclass=account)(uid=fred))"
+dn: uid=fred,ou=people,dc=example,dc=com
+uid: fred
+cn: fred
+objectClass: account
+objectClass: posixAccount
+objectClass: top
+objectClass: shadowAccount
+userPassword:: e2NyeXB0fSQ2JDFNTi5lNEkvSC81dzZDUWckUDllN29RdWI5dm0vNnBTQWFvZU9
+ rbDUxTUMyWnNVbU5pbkNrTmoyMXI2OU1pRGQuUWJpeDhhM0FEdjQuUGxZcGRrVXp1TzBPQVlGT1Jv
+ LkFteHIzVjE=
+shadowLastChange: 18707
+shadowMin: 0
+shadowMax: 99999
+shadowWarning: 7
+loginShell: /bin/bash
+uidNumber: 4000
+gidNumber: 4000
+homeDirectory: /home/fred
+gecos: fred bloggs
+
+[root@server2 ~]# ldapsearch -x -LLL -H ldap://server1.example.com -b dc=example,dc=com "(&(objectclass=account)(uid=fred))" uidNumber uid
+dn: uid=fred,ou=people,dc=example,dc=com
+uid: fred
+uidNumber: 4000
+```
+
+If you just want certain attributes to be returned for your search, you can list the attributes you want
+```
+[root@server2 ~]# ldapsearch -x -LLL -H ldap://server1.example.com -b dc=example,dc=com "(&(objectclass=account)(uid=fred))" uidNumber uid
+dn: uid=fred,ou=people,dc=example,dc=com
+uid: fred
+uidNumber: 4000
+```
+
+Finally, if you want to use the output of a search as a template to create new users, redirect the
+search results to an `ldif` file, then edit that ldif file and put in your new user's details,
+and then add the user to LDAP using `ldapadd`.
+```
+[root@server2 ~]# ldapsearch -x -LLL -H ldap://server1.example.com -b dc=example,dc=com "(&(objectclass=account)(uid=fred))" > newuser.ldif
+[root@server2 ~]# vi !$
+vi newuser.ldif
+[root@server2 ~]# ldapadd -x -W -D cn=Manager,dc=example,dc=com -f newuser.ldif
+Enter LDAP Password:
+adding new entry "uid=sally,ou=people,dc=example,dc=com"
+```
+
+If you run `getent passwd` you can see your new user.  You can now login as the
+new user
+```
+[root@server2 ~]# getent passwd
+root:x:0:0:root:/root:/bin/bash
+...
+...
+fred:x:4000:4000:fred bloggs:/home/fred:/bin/bash
+sally:x:4001:4000:sally bloggs:/home/sally:/bin/bash
+```
+
+## Implementing Kerberos Authentication
+
+### Configure NTP
+
+Ensuring that Kerberos servers and clients are in time sync is important and to that
+end we will install NTP on both server1 and server2.  We will configure server1
+to get time from an external time source and then we configure server2 to collect time
+from the server1 machine.
+
+```
+[root@server1 ~]# yum install -y ntp
+```
+
+Once installed we can configure it's config file.  We want to ensure that machines on the
+same network can access our this server for NTP pursoses.  The NTP config is located at
+`/etc/ntp.comf`.  We want uncomment the restrict directive for the local network and change
+the subnet mask.  This will allow other machines to query the service and we can set up
+peer synchronization.
+```
+[root@server1 ~]# vi /etc/ntp.conf
+...
+# Hosts on local network are less restricted.
+restrict 192.168.99.0 mask 255.255.255.0 nomodify notrap
+```
+
+Then we can enable and start the `ntpd` service
+```
+[root@server1 ~]# systemctl enable ntpd
+Created symlink from /etc/systemd/system/multi-user.target.wants/ntpd.service to /usr/lib/systemd/system/ntpd.service.
+[root@server1 ~]# systemctl start ntpd
+[root@server1 ~]# systemctl status ntpd
+● ntpd.service - Network Time Service
+   Loaded: loaded (/usr/lib/systemd/system/ntpd.service; enabled; vendor preset: disabled)
+   Active: active (running) since Sun 2021-03-28 15:39:01 IST; 4s ago
+  Process: 5292 ExecStart=/usr/sbin/ntpd -u ntp:ntp $OPTIONS (code=exited, status=0/SUCCESS)
+ Main PID: 5293 (ntpd)
+   CGroup: /system.slice/ntpd.service
+           └─5293 /usr/sbin/ntpd -u ntp:ntp -g
+
+Mar 28 15:39:01 server1.example.com ntpd[5293]: Listen normally on 2 lo 127.0.0.1 UDP 123
+...
+```
+
+We can run an ntpq query to ensure we're up and running.  The server with the * is
+the server we're currently synchronizing with.
+```
+[root@server1 ~]# ntpq -p
+     remote           refid      st t when poll reach   delay   offset  jitter
+==============================================================================
++stratum2-3.ntp. 129.70.137.82    2 u    2   64    1   44.346    0.545   6.999
+*ec2-52-17-30-11 89.101.218.6     2 u    1   64    1   15.390   -3.863   1.088
++chris.magnet.ie 88.81.100.130    2 u    -   64    1   14.422   -0.832   7.032
+```
+
+Then we need to add a rule to our firewall to allow NTP traffic in
+```
+[root@server1 ~]# firewall-cmd --add-service=ntp --permanent
+success
+[root@server1 ~]# firewall-cmd --reload
+success
+```
+
+Then we need to add an entry to our `/etc/hosts` file for server2, so our hosts
+file should have the following
+```
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+192.168.99.107 server1 server1.example.com
+192.168.99.105 server2 server2.example.com
+```
+
+On server2, we need to do some very similar setup, other than the fact that the NTP
+server we are syncing up with is our server1 machine.
+
+First we install ntp
+```
+[root@server2 ~]# yum install -y ntp
+```
+
+Then we chance the ntp configuration, and change the server section to that it
+points to our server1 machine as the prefered machine (denoted by `prefer`), and
+that we have left just one external ntp server as a backup if server1 is unavailable
+for any reason. `iburst` just means to synchronize quickly.
+```
+[root@server2 ~]# vi /etc/ntp.conf
+...
+# Use public servers from the pool.ntp.org project.
+# Please consider joining the pool (http://www.pool.ntp.org/join.html).
+server server1.example.com iburst prefer
+server 3.centos.pool.ntp.org iburst
+...
+```
+
+Then we enable and start the ntp service on server2
+```
+[root@server2 ~]# systemctl enable ntpd
+Created symlink from /etc/systemd/system/multi-user.target.wants/ntpd.service to /usr/lib/systemd/system/ntpd.service.
+[root@server2 ~]# systemctl start ntpd
+[root@server2 ~]# systemctl status ntpd
+● ntpd.service - Network Time Service
+   Loaded: loaded (/usr/lib/systemd/system/ntpd.service; enabled; vendor preset: disabled)
+   Active: active (running) since Sun 2021-03-28 15:44:02 IST; 5s ago
+  Process: 4284 ExecStart=/usr/sbin/ntpd -u ntp:ntp $OPTIONS (code=exited, status=0/SUCCESS)
+ Main PID: 4285 (ntpd)
+   CGroup: /system.slice/ntpd.service
+           └─4285 /usr/sbin/ntpd -u ntp:ntp -g
+...
+```
+
+We don't need to make any changes to the firewall settings, there will be no
+incoming ntp traffic to this machine.
+
+Finally if we do an ntp query, we can see that the server we are synced to for NTP
+purposes is our server1 machine
+```
+[root@server2 ~]# ntpq -p
+     remote           refid      st t when poll reach   delay   offset  jitter
+==============================================================================
+*server1.example 52.17.30.119     3 u   10   64    1    0.487   11.327   0.067
+ ec2-52-17-231-7 193.120.142.71   2 u    9   64    1   15.347   -1.422  16.045
+ ```
+
+ ### Install and Configure Kerberos KDC (Key Distrubution Center)
