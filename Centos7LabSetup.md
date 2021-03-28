@@ -182,3 +182,55 @@ Enter the following lines;
 screen -t server1 0 bash
 screen -t s1 1 ssh server2
 ```
+
+## Installing and Configuring an LDAP Server to support centralized user login
+
+First of all we need to check if our hostname has been set
+```
+centos@server1 ~]$ hostname
+server1.example.com
+```
+
+Then we need to gain root privileges
+```
+[centos@server1 ~]$ su -
+Password:
+Last login: Wed Mar 24 20:53:01 GMT 2021 on pts/0
+```
+
+Then we need to add an entry for our machine and hostname into our `/etc/hosts` file.
+We can confirm our ip address by running `ip a s`.  We can confirm that our hosts
+file has the entry by pinging the hostname FQDN.
+```
+[root@server1 ~]# echo "192.168.99.107 server1.example.com" >> /etc/hosts
+[root@server1 ~]# ping server1.example.com
+PING server1.example.com (192.168.99.107) 56(84) bytes of data.
+64 bytes from server1.example.com (192.168.99.107): icmp_seq=1 ttl=64 time=0.064 ms
+64 bytes from server1.example.com (192.168.99.107): icmp_seq=2 ttl=64 time=0.055 ms
+```
+
+We can check to make sure no ldap server is listening
+```
+[root@server1 ~]# netstat -ltn
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN
+tcp        0      0 127.0.0.1:25            0.0.0.0:*               LISTEN
+tcp6       0      0 :::22                   :::*                    LISTEN
+tcp6       0      0 ::1:25                  :::*                    LISTEN
+```
+
+Next we need to add a firewall rule to allow ldap traffic through. The firewall
+settings need to be reloaded for it to take effect in the current session (otherwise
+we need to create a new session)
+```
+[root@server1 ~]# firewall-cmd --permanent --add-service=ldap
+success
+[root@server1 ~]# firewall-cmd --reload
+success
+```
+
+Finally we install the various ldap packages and tools using `yum`
+```
+[root@server1 ~]# yum install -y openldap openldap-clients openldap-servers migrationtools.noarch
+```
