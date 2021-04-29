@@ -2096,3 +2096,125 @@ purposes is our server1 machine
  ```
 
  ### Install and Configure Kerberos KDC (Key Distrubution Center)
+
+This involves installing the kadmin server and the KDC on server1
+
+The first thing we need to do is install a Random Number Generator for KDC
+```
+[root@server1 ~]# yum install -y rng-tools.x86_64
+```
+
+Then we need to start the rngd service.  Before we do that, we need to edit the
+rngd.service file and make sure it uses the /dev/urandom device.
+```
+[root@server1 ~]# vi /usr/lib/systemd/system/rngd.service
+
+[Service]
+ExecStart=/sbin/rngd -f -r /dev/urandom
+```
+
+Then we can start and enable the rngd service
+```
+[root@server1 /usr/lib/systemd/system]# systemctl start rngd
+[root@server1 /usr/lib/systemd/system]# systemctl status rngd
+● rngd.service - Hardware RNG Entropy Gatherer Daemon
+   Loaded: loaded (/usr/lib/systemd/system/rngd.service; enabled; vendor preset: enabled)
+   Active: active (running) since Wed 2021-03-31 21:05:11 IST; 11s ago
+ Main PID: 1916 (rngd)
+   CGroup: /system.slice/rngd.service
+           └─1916 /sbin/rngd -f -r /dev/urandom
+...
+[root@server1 /usr/lib/systemd/system]# systemctl enable rngd
+```
+
+Now we can do our kerberos installation, installing the kerberos server, client and PAM modules
+```
+[root@server1 /usr/lib/systemd/system]# yum install -y krb5-server krb5-workstation.x86_64 pam_krb5
+```
+
+
+The Kerberos server config is located in /var/kerberos/krb5kdc directory, and if we cat the two files
+in that dir, we can see that they are set up to use EXAMPLE.COM as the realm.  This is fortunate
+for us because example.com is the domain we are using, so we don't need to make any changes here.
+```
+[root@server1 /var/kerberos/krb5kdc]# cat kadm5.acl
+*/admin@EXAMPLE.COM	*
+
+[root@server1 /var/kerberos/krb5kdc]# cat kdc.conf
+[kdcdefaults]
+ kdc_ports = 88
+ kdc_tcp_ports = 88
+
+[realms]
+ EXAMPLE.COM = {
+  #master_key_type = aes256-cts
+  acl_file = /var/kerberos/krb5kdc/kadm5.acl
+  dict_file = /usr/share/dict/words
+  admin_keytab = /var/kerberos/krb5kdc/kadm5.keytab
+  supported_enctypes = aes256-cts:normal aes128-cts:normal des3-hmac-sha1:normal arcfour-hmac:normal camellia256-cts:normal camellia128-cts:normal des-hmac-sha1:normal des-cbc-md5:normal des-cbc-crc:normal
+ }
+ ```
+
+The Kerberos client config is located in /etc/krb5.conf
+```
+# Configuration snippets may be placed in this directory as well
+includedir /etc/krb5.conf.d/
+
+[logging]
+ default = FILE:/var/log/krb5libs.log
+ kdc = FILE:/var/log/krb5kdc.log
+ admin_server = FILE:/var/log/kadmind.log
+
+[libdefaults]
+ dns_lookup_realm = false
+ ticket_lifetime = 24h
+ renew_lifetime = 7d
+ forwardable = true
+ rdns = false
+ pkinit_anchors = FILE:/etc/pki/tls/certs/ca-bundle.crt
+# default_realm = EXAMPLE.COM
+ default_ccache_name = KEYRING:persistent:%{uid}
+
+[realms]
+# EXAMPLE.COM = {
+#  kdc = kerberos.example.com
+#  admin_server = kerberos.example.com
+# }
+
+[domain_realm]
+# .example.com = EXAMPLE.COM
+# example.com = EXAMPLE.COM
+```
+
+We need to edit this file and uncomment the default_realm, the realms block and
+the domain_realm block.  And we need to change the kdc and admin_server to point at
+server1.example.com.  The file should look like the following.
+```
+# Configuration snippets may be placed in this directory as well
+includedir /etc/krb5.conf.d/
+
+[logging]
+ default = FILE:/var/log/krb5libs.log
+ kdc = FILE:/var/log/krb5kdc.log
+ admin_server = FILE:/var/log/kadmind.log
+
+[libdefaults]
+ dns_lookup_realm = false
+ ticket_lifetime = 24h
+ renew_lifetime = 7d
+ forwardable = true
+ rdns = false
+ pkinit_anchors = FILE:/etc/pki/tls/certs/ca-bundle.crt
+ default_realm = EXAMPLE.COM
+ default_ccache_name = KEYRING:persistent:%{uid}
+
+[realms]
+ EXAMPLE.COM = {
+  kdc = server1.example.com
+  admin_server = server1.example.com
+ }
+
+[domain_realm]
+ .example.com = EXAMPLE.COM
+ example.com = EXAMPLE.COM
+```
