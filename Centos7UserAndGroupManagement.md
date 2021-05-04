@@ -2052,7 +2052,7 @@ First we install ntp
 [root@server2 ~]# yum install -y ntp
 ```
 
-Then we chance the ntp configuration, and change the server section to that it
+Then we change the ntp configuration, and change the server section to that it
 points to our server1 machine as the prefered machine (denoted by `prefer`), and
 that we have left just one external ntp server as a backup if server1 is unavailable
 for any reason. `iburst` just means to synchronize quickly.
@@ -2217,4 +2217,336 @@ includedir /etc/krb5.conf.d/
 [domain_realm]
  .example.com = EXAMPLE.COM
  example.com = EXAMPLE.COM
+```
+
+Now we need to initialize our KDC databases for our realm EXAMPLE.COM.  The DB master key password is "aoraki"
+```
+[root@server1 /var/kerberos/krb5kdc]# kdb5_util create -s -r EXAMPLE.COM
+Loading random data
+Initializing database '/var/kerberos/krb5kdc/principal' for realm 'EXAMPLE.COM',
+master key name 'K/M@EXAMPLE.COM'
+You will be prompted for the database Master Password.
+It is important that you NOT FORGET this password.
+Enter KDC database master key:
+Re-enter KDC database master key to verify:
+```
+
+If we look at the contents of our current dir we can see the new db files that have been
+created
+```
+[root@server1 /var/kerberos/krb5kdc]# ls
+kadm5.acl  kdc.conf  principal  principal.kadm5  principal.kadm5.lock  principal.ok
+```
+
+Finally we need to start the kadmin and KDC services
+```
+root@server1 /var/kerberos/krb5kdc]# systemctl start krb5kdc kadmin
+[root@server1 /var/kerberos/krb5kdc]# systemctl enable krb5kdc kadmin
+Created symlink from /etc/systemd/system/multi-user.target.wants/krb5kdc.service to /usr/lib/systemd/system/krb5kdc.service.
+Created symlink from /etc/systemd/system/multi-user.target.wants/kadmin.service to /usr/lib/systemd/system/kadmin.service.
+[root@server1 /var/kerberos/krb5kdc]# systemctl status krb5kdc kadmin
+● krb5kdc.service - Kerberos 5 KDC
+   Loaded: loaded (/usr/lib/systemd/system/krb5kdc.service; enabled; vendor preset: disabled)
+   Active: active (running) since Wed 2021-03-31 21:23:02 IST; 13s ago
+ Main PID: 2306 (krb5kdc)
+   CGroup: /system.slice/krb5kdc.service
+           └─2306 /usr/sbin/krb5kdc -P /var/run/krb5kdc.pid
+
+Mar 31 21:23:02 server1.example.com systemd[1]: Starting Kerberos 5 KDC...
+Mar 31 21:23:02 server1.example.com systemd[1]: Can't open PID file /var/run/krb5kdc.pid (yet?) after start: No such file or directory
+Mar 31 21:23:02 server1.example.com systemd[1]: Started Kerberos 5 KDC.
+
+● kadmin.service - Kerberos 5 Password-changing and Administration
+   Loaded: loaded (/usr/lib/systemd/system/kadmin.service; enabled; vendor preset: disabled)
+   Active: active (running) since Wed 2021-03-31 21:23:02 IST; 13s ago
+ Main PID: 2307 (kadmind)
+   CGroup: /system.slice/kadmin.service
+           └─2307 /usr/sbin/kadmind -P /var/run/kadmind.pid
+
+Mar 31 21:23:02 server1.example.com systemd[1]: Starting Kerberos 5 Password-changing and Administration...
+Mar 31 21:23:02 server1.example.com systemd[1]: Can't open PID file /var/run/kadmind.pid (yet?) after start: No such file or directory
+Mar 31 21:23:02 server1.example.com systemd[1]: Started Kerberos 5 Password-changing and Administration.
+```
+
+### Adding Kerberos Principals
+
+We now need to add principals.  We need to first add some firewall rules we can connect through to our server (ensuring to reload the firewall service at the end)
+```
+[root@server1 /var/kerberos/krb5kdc]# firewall-cmd --add-service=kpasswd --permanent
+success
+[root@server1 /var/kerberos/krb5kdc]# firewall-cmd --add-service=kerberos --permanent
+success
+[root@server1 /var/kerberos/krb5kdc]# firewall-cmd --add-port=749/tcp --permanent
+success
+[root@server1 /var/kerberos/krb5kdc]# firewall-cmd --reload
+success
+```
+
+We are now going to do a bit of management so that we can get up and running with the local machine. We are going to use kadmin.local to do this (which just authenticates as the root user).  This gives us the kadmin.local prompt.
+```
+[root@server1 ~]# kadmin.local
+Authenticating as principal root/admin@EXAMPLE.COM with password.
+```
+
+To list kerberos principals, run the listprincs cmd
+```
+kadmin.local:  listprincs
+K/M@EXAMPLE.COM
+kadmin/admin@EXAMPLE.COM
+kadmin/changepw@EXAMPLE.COM
+kadmin/server1@EXAMPLE.COM
+kiprop/server1@EXAMPLE.COM
+krbtgt/EXAMPLE.COM@EXAMPLE.COM
+```
+
+To add a new principal, in our case the root user.  You need to add a password for the user which
+can be a separate password to the normal root user (and probably should be).  This new principal will be able to connect locally and remotely to the administration service.
+```
+kadmin.local:  addprinc root/admin
+WARNING: no policy specified for root/admin@EXAMPLE.COM; defaulting to no policy
+Enter password for principal "root/admin@EXAMPLE.COM":
+Re-enter password for principal "root/admin@EXAMPLE.COM":
+Principal "root/admin@EXAMPLE.COM" created.
+```
+
+If we want to create a principal for the centos user, but not make him an admin
+```
+kadmin.local:  addprinc centos
+WARNING: no policy specified for centos@EXAMPLE.COM; defaulting to no policy
+Enter password for principal "centos@EXAMPLE.COM":
+Re-enter password for principal "centos@EXAMPLE.COM":
+Principal "centos@EXAMPLE.COM" created.
+```
+
+We also need to create a principal for any hosts that are using the service.  So we'll
+create one for server1.example.com.  We'll generate a random key for authentication purposes
+```
+kadmin.local:  addprinc -randkey host/server1.example.com
+WARNING: no policy specified for host/server1.example.com@EXAMPLE.COM; defaulting to no policy
+Principal "host/server1.example.com@EXAMPLE.COM" created.
+```
+
+If we now list our principals again we'll see the new principals we added
+```
+kadmin.local:  listprincs
+K/M@EXAMPLE.COM
+centos@EXAMPLE.COM
+host/server1.example.com@EXAMPLE.COM
+kadmin/admin@EXAMPLE.COM
+kadmin/changepw@EXAMPLE.COM
+kadmin/server1@EXAMPLE.COM
+kiprop/server1@EXAMPLE.COM
+krbtgt/EXAMPLE.COM@EXAMPLE.COM
+root/admin@EXAMPLE.COM
+```
+
+We need to create a copy of the keytab file for our host, server1.  We can do this
+using ktadd
+```
+kadmin.local:  ktadd host/server1.example.com
+Entry for principal host/server1.example.com with kvno 2, encryption type aes256-cts-hmac-sha1-96 added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/server1.example.com with kvno 2, encryption type aes128-cts-hmac-sha1-96 added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/server1.example.com with kvno 2, encryption type des3-cbc-sha1 added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/server1.example.com with kvno 2, encryption type arcfour-hmac added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/server1.example.com with kvno 2, encryption type camellia256-cts-cmac added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/server1.example.com with kvno 2, encryption type camellia128-cts-cmac added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/server1.example.com with kvno 2, encryption type des-hmac-sha1 added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/server1.example.com with kvno 2, encryption type des-cbc-md5 added to keytab FILE:/etc/krb5.keytab.
+```
+
+### Enabling Kerberos Authentication
+
+Now that our kerberos server is up and running we now need to look at "kerberizing" our services.
+The real benefit of using kerberos across all your servers is that you can authenticate just once
+to obtain a kerberos token, and then use that token to log into all the servers that support kerberos.
+
+Having set up our principals we are able to user server1 as a kerberos-based host.
+
+We will kerberize the ssh client first, make the following changes to the `ssh_config` file
+```
+vi /etc/ssh/ssh_config
+```
+
+Uncomment out the following settings and change their values to yes
+```
+GSSAPIAuthentication yes
+GSSAPIDelegateCredentials yes
+```
+
+Reload sshd and then enable kerberos for ssh
+```
+[root@server1 ~]# systemctl reload sshd
+[root@server1 ~]# authconfig --enablekrb5 --update
+```
+
+To test that you can use kerberos to ssh into a box, you first need to log in as a non-root
+user
+```
+[root@server1 ~]# su -l centos
+Last login: Thu Apr  8 21:44:08 IST 2021 from server1 on pts/1
+```
+
+Then if you try run the klist command you can see that the centos user does not have any
+kerberos tokens.
+```
+[centos@server1 ~]$ klist
+klist: Credentials cache keyring 'persistent:1000:1000' not found
+```
+
+To obtain a kerberos token that can be presented on login run the kinit command and enter
+the password specified when the kerberos principals were set up
+```
+[centos@server1 ~]$ kinit
+Password for centos@EXAMPLE.COM:
+```
+
+If you run klist again you will now see a token as been created.  It can be used
+for the next 24 hours for authentication
+```
+[centos@server1 ~]$ klist
+Ticket cache: KEYRING:persistent:1000:1000
+Default principal: centos@EXAMPLE.COM
+
+Valid starting     Expires            Service principal
+29/04/21 21:54:12  30/04/21 21:54:12  krbtgt/EXAMPLE.COM@EXAMPLE.COM
+```
+
+You can then ssh to server1 and will not be prompted for a password
+```
+[centos@server1 ~]$ ssh server1.example.com
+Last login: Thu Apr 29 21:54:00 2021
+```
+
+You can destroy your token if you don't want to keep it around any more
+```
+[centos@server1 ~]$ kdestroy
+[centos@server1 ~]$ klist
+klist: Credentials cache keyring 'persistent:1000:1000' not found
+```
+
+### Adding Additional Hosts
+
+You can configure additional hosts to accept kerberos authentication.
+
+You need to edit the /etc/hosts file
+
+```
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+192.168.99.107 server1.example.com
+192.168.99.105 server2.example.com
+```
+
+You need to install the kerberos utilities.  You don't need to install the kerberos
+server on any additional hosts, just the kerberos client
+```
+[root@server2 ~]# yum install -y krb5-workstation pam_krb5
+```
+
+Copy the krb5 conf file from server1 machine.  This sets up the realms and domain names
+```
+[root@server2 ~]# scp centos@server1.example.com:/etc/krb5.conf /etc
+```
+
+We can log in to the remote kerberos system using `kadmin`.  This will connect to the
+the "remote" kerberos server (On the kerberos service you use `kadmin.local`. You will
+be prompted for the root user kerberos principal
+```
+[root@server2 ~]# kadmin
+Authenticating as principal root/admin@EXAMPLE.COM with password.
+Password for root/admin@EXAMPLE.COM:
+```
+
+Once in kadmin, you can run commands against the remote kerberos system, such as `listprincs`
+```
+kadmin:  listprincs
+K/M@EXAMPLE.COM
+centos@EXAMPLE.COM
+host/server1.example.com@EXAMPLE.COM
+kadmin/admin@EXAMPLE.COM
+kadmin/changepw@EXAMPLE.COM
+kadmin/server1@EXAMPLE.COM
+kiprop/server1@EXAMPLE.COM
+krbtgt/EXAMPLE.COM@EXAMPLE.COM
+root/admin@EXAMPLE.COM
+```
+
+We need to add in a host for server2.  Afterwards if you run `listprincs` again
+you will see the new host added
+```
+kadmin: addprinc -randkey host/server2.example.com
+WARNING: no policy specified for host/server2.example.com@EXAMPLE.COM; defaulting to no policy
+Principal "host/server2.example.com@EXAMPLE.COM" created.
+
+kadmin:  listprincs
+K/M@EXAMPLE.COM
+centos@EXAMPLE.COM
+host/server1.example.com@EXAMPLE.COM
+host/server2.example.com@EXAMPLE.COM
+kadmin/admin@EXAMPLE.COM
+kadmin/changepw@EXAMPLE.COM
+kadmin/server1@EXAMPLE.COM
+kiprop/server1@EXAMPLE.COM
+krbtgt/EXAMPLE.COM@EXAMPLE.COM
+root/admin@EXAMPLE.COM
+```
+
+We now need to add the ktab file, which will add the key pairs through to the local file
+```
+kadmin:  ktadd host/server2.example.com
+Entry for principal host/server2.example.com with kvno 2, encryption type aes256-cts-hmac-sha1-96 added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/server2.example.com with kvno 2, encryption type aes128-cts-hmac-sha1-96 added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/server2.example.com with kvno 2, encryption type des3-cbc-sha1 added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/server2.example.com with kvno 2, encryption type arcfour-hmac added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/server2.example.com with kvno 2, encryption type camellia256-cts-cmac added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/server2.example.com with kvno 2, encryption type camellia128-cts-cmac added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/server2.example.com with kvno 2, encryption type des-hmac-sha1 added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/server2.example.com with kvno 2, encryption type des-cbc-md5 added to keytab FILE:/etc/krb5.keytab.
+```
+
+We will configure the ssh client to enable kerberos authentication, make the following changes to the `ssh_config` file
+```
+vi /etc/ssh/ssh_config
+```
+
+Uncomment out the following settings and change their values to yes
+```
+GSSAPIAuthentication yes
+GSSAPIDelegateCredentials yes
+```
+
+Reload sshd and then enable kerberos for ssh
+```
+[root@server2 ~]# systemctl reload sshd
+[root@server2 ~]# authconfig --enablekrb5 --update
+```
+
+Exit out of root and check if you have any kerberos tokens
+```
+[root@server2 ~]# exit
+logout
+[centos@server2 ~]$ klist
+klist: Credentials cache keyring 'persistent:1000:1000' not found
+```
+
+We can generate a kerberos keyring using `kinit`
+```
+[centos@server2 ~]$ kinit
+Password for centos@EXAMPLE.COM:
+[centos@server2 ~]$ klist
+Ticket cache: KEYRING:persistent:1000:1000
+Default principal: centos@EXAMPLE.COM
+
+Valid starting     Expires            Service principal
+04/05/21 21:12:27  05/05/21 21:12:27  krbtgt/EXAMPLE.COM@EXAMPLE.COM
+```
+
+You can then log into your kerberos enabled servers without having to provide a password
+or use a ssk public/private key pair
+```
+[centos@server2 ~]$ ssh server1.example.com
+Last login: Tue May  4 20:54:25 2021 from 192.168.99.1
+
+[centos@server2 ~]$ ssh server2.example.com
+Last login: Tue May  4 20:54:25 2021 from 192.168.99.1
 ```
